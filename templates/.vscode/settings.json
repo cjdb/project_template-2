@@ -1,0 +1,19 @@
+{
+  "clangd.path": "/usr/bin/clangd",
+  "clangd.arguments": [
+    "--background-index",
+    "--clang-tidy",
+    "--compilation-style=detailed",
+    "--compile-commands-dir=${workspaceFolder}/build",
+    "--header-insertion=never",
+    "--malloc-trim",
+    "--pch-storage=memory",
+    "-j=4",
+  ],
+  "clangd.checkUpdates": true,
+  "cmake.buildBeforeRun": true,
+  "cmake.configureOnEdit": true,
+  "cmake.configureOnOpen": false,
+  "cmake.generator": "Ninja",
+  "cmake.saveBeforeBuild": true,
+}
