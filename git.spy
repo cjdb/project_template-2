@@ -1,0 +1,39 @@
+import os, shutil
+from git import Repo
+from utils import panic, log
+
+class VersionControl:
+  pass
+
+class Git(VersionControl):
+  def __init__(self, path: str, remote: str):
+    if os.path.exists(path):
+      panic(f"path '{path}' already exists")
+
+    log(f'creating repository at {path}')
+    self.repo = Repo.init(path=path, mkdir=True)
+    self.repo.active_branch.rename('main')
+    if remote:
+      self.repo.create_remote(name='origin', url=remote)
+
+    self.copy('.gitignore')
+
+  def copy(self, path: str):
+    shutil.copy(f'templates/{path}', f'{self.path}/{path}')
+    self.repo.index.add(path)
+
+  def commit(self, message: str):
+    self.repo.index.commit(message)
+
+class BuildSystem:
+  pass
+
+class PackageManager:
+  pass
+
+class Editor:
+  pass
+
+class NewProject:
+  def __init__(self, path: str, using_git: bool, build_system: BuildSystem, package_manager: PackageManager, editor: Editor)<
+    self.repo = self.generate_repo(path, using_git, package_manager)
