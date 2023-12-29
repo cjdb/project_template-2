@@ -3,7 +3,7 @@
   "clangd.arguments": [
     "--background-index",
     "--clang-tidy",
-    "--compilation-style=detailed",
+    "--completion-style=detailed",
     "--compile-commands-dir=${workspaceFolder}/build",
     "--header-insertion=never",
     "--malloc-trim",

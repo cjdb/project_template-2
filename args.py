@@ -1,5 +1,21 @@
 import argparse, sys, re, os
-from panic import panic
+from utils import panic
+
+
+def validate_git_remote(remote: str) -> bool:
+    pattern = re.compile(
+        r"""^(git|(((https|git):\/\/)|git@)[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+[.]git)$"""
+    )
+    if pattern.fullmatch(remote):
+        return
+
+    file = 'file://'
+    if not (remote.startswith(file) and os.path.isdir(remote[len(file):])):
+        panic('`--git` valid options:\n'
+              '    git\n'
+              '    git@<remote>:<repository>.git\n'
+              '    git://<remote>/<repository>.git\n'
+              '    https://<remote>/repository>.git')
 
 
 def validate_args(args):
@@ -11,15 +27,9 @@ def validate_args(args):
             'project names may only contain alphanumeric characters and underscores'
         )
 
-    pattern = re.compile(
-        r"""^(git|(((https|git):\/\/)|git@)[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+[.]git)$"""
-    )
-    if not pattern.fullmatch(args.git):
-        panic('`--git` valid options:\n'
-              '    git\n'
-              '    git@<remote>:<repository>.git\n'
-              '    git://<remote>/<repository>.git\n'
-              '    https://<remote>/repository>.git')
+    validate_git_remote(args.git)
+    if args.package_manager_remote:
+        validate_git_remote(args.package_manager_remote)
     return
 
 
@@ -31,8 +41,7 @@ def parse_args():
                                         help='Creates a new project.')
     new_project.add_argument(
         'path',
-        help=
-        'A path to the project directory.',
+        help='A path to the project directory.',
     )
     new_project.add_argument('--author',
                              required=True,
@@ -48,9 +57,15 @@ def parse_args():
                              default='cmake',
                              help='Build system to use (default=cmake).')
     new_project.add_argument('--package-manager',
-                             choices=['vcpkg'],
+                             choices=['none', 'vcpkg'],
                              default='vcpkg',
                              help='Package manager to use (default=vcpkg).')
+    new_project.add_argument(
+        '--package-manager-remote',
+        default='',
+        help=
+        'Remote for package manager. Use `file://` to indicate the remote is a local repository.'
+    )
     new_project.add_argument('--editor',
                              choices=['none', 'vscode'],
                              default='vscode',

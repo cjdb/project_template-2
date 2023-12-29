@@ -4,6 +4,10 @@
 include(FindPackageHandleStandardArgs)
 
 set(clang_tidy_path "$${${project_name}_CLANG_TIDY_PATH}")
+if(NOT clang_tidy_path)
+  get_filename_component(clang_tidy_path "$${CMAKE_CXX_COMPILER}" DIRECTORY)
+  set(clang_tidy_path "$${clang_tidy_path}/clang-tidy")
+endif()
 
 if(EXISTS "$${clang_tidy_path}")
   set(ClangTidy_FOUND Yes)

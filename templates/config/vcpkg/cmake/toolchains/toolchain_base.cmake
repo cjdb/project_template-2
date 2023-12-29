@@ -26,11 +26,12 @@ string(
   -fdiagnostics-color=always
   -fstack-protector-strong
   -fvisibility=hidden
-  -pedantic
   ${linker}
-  ${libcxx}
+  ${stdlib}
   ${hardening}
   ${libunwind}
   ${compiler_rt}
   ${lto}
+  ${exceptions}
+  ${rtti}
 )

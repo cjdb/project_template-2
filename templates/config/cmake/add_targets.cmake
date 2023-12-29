@@ -1,12 +1,15 @@
 # Copyright (c) Christopher Di Bella.
 # SPDX-License-Identifier: Apache-2.0 with LLVM Exception
 #
-macro(ADD_TARGET_EXTRACT_ARGS optional_values single_values multi_values)
-  list(APPEND optional_values "")
-  list(APPEND single_values TARGET)
-  list(APPEND multi_values COMPILE_OPTIONS INCLUDE DEFINE LINK_OPTIONS LINK_TARGETS SOURCES)
+# Defines functions that generate C++ executables, libraries, and tests.
 
-  cmake_parse_arguments(add_target_args "$${optional_values}" "$${single_values}" "$${multi_values}" $${ARGN})
+# Extracts values passed to a builder.
+macro(ADD_TARGETS_EXTRACT_ARGS optional_values single_values multi_values)
+  set(optional_values2 ${optional_values} "")
+  set(single_values2   ${single_values}   TARGET)
+  set(multi_values2    ${multi_values} COMPILE_OPTIONS INCLUDE DEFINE LINK_OPTIONS LINK_TARGETS SOURCES)
+
+  cmake_parse_arguments(add_target_args "${optional_values2}" "${single_values2}" "${multi_values2}" ${ARGN})
 
   if(NOT add_target_args_TARGET)
     message(FATAL_ERROR "TARGET is not set; cannot build a $${CMAKE_CURRENT_FUNCTION} without naming the TARGET")
@@ -18,30 +21,37 @@ macro(ADD_TARGET_EXTRACT_ARGS optional_values single_values multi_values)
 endmacro()
 
 function(add_scoped_options target scope compile_options macros includes link_options link_targets)
-  set(enable_thin_lto "$$<AND:$$<CONFIG:Release>,$$<CXX_COMPILER_ID:Clang>,$$<BOOL:${project_name}_ENABLE_LTO>")
-  set(enable_lto "$$<AND:$$<CONFIG:Release>,$$<CXX_COMPILER_ID:GNU>,$$<BOOL:${project_name}_ENABLE_LTO>")
-  set(enable_cfi "$$<AND:enable_thin_lto,enable_cfi>")
+  set(is_release $<CONFIG:Release>)
+  set(is_clang $<CXX_COMPILER_ID:Clang>)
+  set(is_gcc $<CXX_COMPILER_ID:GNU>)
 
+  set(enable_thin_lto $<AND:${is_release},${is_clang},$<BOOL:cxxrs_ENABLE_LTO>>)
+  set(enable_lto $<AND:${is_release},${is_gcc},$<BOOL:cxxrs_ENABLE_LTO>>)
+  set(enable_cfi $<AND:${enable_thin_lto},$<BOOL:cxxrs_ENABLE_CFI>>)
+  set(enable_sanitizer $<AND:$<BOOL:cxxrs_USE_SANITIZER>,$<IN_LIST:${CMAKE_BUILD_TYPE},${cxxrs_USE_SANITIZER_WITH_BUILD_TYPE}>>)
+  set(enable_coverage $<BOOL:cxxrs_PROFILE_COVERAGE>)
   target_compile_options(
-    $${target} $${scope}
-    "$${compile_options}"
-    $$<$$<BOOL:$${${project_name}_ENABLE_SANITIZERS}>:-fsanitize=address,undefined>
-    $$<$$<BOOL:enable_lto>:-flto>
-    $$<$$<BOOL:enable_thin_lto>:-flto=thin>
-    $$<$$<BOOL:enable_cfi>:-fsanitize=cfi>
+    ${target} ${scope}
+    "${compile_options}"
+    $<${enable_sanitizer}:-fsanitize=${cxxrs_USE_SANITIZER}>
+    $<${enable_lto}:-flto>
+    $<${enable_thin_lto}:-flto=thin>
+    $<${enable_cfi}:-fsanitize=cfi>
+    $<${enable_coverage}:-fsanitize-coverage=trace-pc-guard>
   )
-  target_compile_definitions($${target} $${scope} "$${macros}")
-  target_include_directories($${target} $${scope} "$${includes}")
+  target_compile_definitions(${target} ${scope} "${macros}")
+  target_include_directories(${target} ${scope} "${includes}")
 
   target_link_options(
-    $${target} $${scope}
-    $$<$$<BOOL:$${${project_name}_ENABLE_SANITIZERS}>:-fsanitize=address,undefined>
-    $$<$$<BOOL:enable_lto>:-flto>
-    $$<$$<BOOL:enable_thin_lto>:-flto=thin>
-    $$<$$<BOOL:enable_cfi>:-fsanitize=cfi>
-    "$${link_options}"
+    ${target} ${scope}
+    $<${enable_sanitizer}:-fsanitize=${cxxrs_USE_SANITIZER}>
+    $<${enable_lto}:-flto>
+    $<${enable_thin_lto}:-flto=thin>
+    $<${enable_cfi}:-fsanitize=cfi>
+    $<${enable_coverage}:-fsanitize-coverage=trace-pc-guard>
+    "${link_options}"
   )
-  target_link_libraries($${target} $${scope} "$${link_targets}")
+  target_link_libraries(${target} ${scope} "${link_targets}")
 endfunction()
 
 function(cxx_binary)
@@ -62,7 +72,7 @@ function(check_library_type library_type)
   set(valid_types STATIC SHARED MODULE OBJECT)
   list(FIND valid_types "$${library_type}" library_type_result)
   if(library_type_result EQUAL -1)
-    message(ERROR "unknown library type `$${library_type}`")
+    message(FATAL_ERROR "unknown library type `$${library_type}`")
   endif()
 endfunction()
 
@@ -106,8 +116,9 @@ function(cxx_test)
 endfunction()
 
 function(std_module target)
+  message(FATAL_ERROR "std_module is not complete yet")
   if(NOT ${project_name}_ENABLE_MODULES)
-    return
+    return()
   endif()
 
   target_compile_options(target $$<$$<COMPILE_LANGUAGE:CXX>:"-fprebuilt-module-path=$${CMAKE_BINARY_DIR}/_deps/std-build/CMakeFiles/std.dir/">)

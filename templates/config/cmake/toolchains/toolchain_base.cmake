@@ -44,8 +44,10 @@ string(
     -Wno-private-header
     -Wno-unused-command-line-argument
     ${linker}
-    ${libcxx}
+    ${stdlib}
     ${hardening}
     ${libunwind}
     ${compiler_rt}
+    ${exceptions}
+    ${rtti}
 )
