@@ -11,11 +11,11 @@ def validate_git_remote(remote: str) -> bool:
 
     file = 'file://'
     if not (remote.startswith(file) and os.path.isdir(remote[len(file):])):
-        panic('`--git` valid options:\n'
-              '    git\n'
+        panic('remote valid options:\n'
               '    git@<remote>:<repository>.git\n'
               '    git://<remote>/<repository>.git\n'
-              '    https://<remote>/repository>.git')
+              '    https://<remote>/repository>.git\n'
+              '    file:///path/to/remote')
 
 
 def validate_args(args):
@@ -27,7 +27,8 @@ def validate_args(args):
             'project names may only contain alphanumeric characters and underscores'
         )
 
-    validate_git_remote(args.git)
+    if args.remote:
+        validate_git_remote(args.remote)
     if args.package_manager_remote:
         validate_git_remote(args.package_manager_remote)
     return
@@ -47,15 +48,11 @@ def parse_args():
                              required=True,
                              help='The entity who owns the copyright.')
     new_project.add_argument(
-        '--git',
-        default='git',
+        '--remote',
+        default='',
         help=
-        "Version control system to use (default='git'). Also recognises Git remotes (e.g. 'git@', 'git://')."
+        "Sets the default Git remote. Use 'file://' to indicate a file system-based remote."
     )
-    new_project.add_argument('--build-system',
-                             choices=['cmake'],
-                             default='cmake',
-                             help='Build system to use (default=cmake).')
     new_project.add_argument('--package-manager',
                              choices=['none', 'vcpkg'],
                              default='vcpkg',
@@ -71,26 +68,24 @@ def parse_args():
                              default='vscode',
                              help='Editor to set up for.')
     new_project.add_argument(
-        '-prefix',
+        '--toolchain-prefix',
         type=str,
         default='/usr',
         help='Path to compiler root directory. (default=\'/usr\')')
     new_project.add_argument(
-        '-target',
-        type=str,
-        default='',
-        help='The triple to target. Defaults to system default.')
-    new_project.add_argument(
         '-std',
-        choices=[11, 14, 17, 20, 23, 26],
-        default=20,
-        help='C++ standard to compile against (default=20).')
+        choices=[
+            'c++11', 'c++14', 'c++17', 'c++20', 'c++23', 'c++26', 'gnu++11',
+            'gnu++14', 'gnu++17', 'gnu++20', 'gnu++23', 'gnu++26'
+        ],
+        default='c++20',
+        help='C++ standard to compile against (default=c++20).')
     new_project.add_argument('-fno-exceptions',
-                           action='store_true',
-                           help='Disables exceptions (default=false).')
+                             action='store_true',
+                             help='Disables exceptions (default=false).')
     new_project.add_argument('-fno-rtti',
-                           action='store_true',
-                           help='Disables RTTI (default=false).')
+                             action='store_true',
+                             help='Disables RTTI (default=false).')
 
     args = parser.parse_args()
     if len(sys.argv) == 1:

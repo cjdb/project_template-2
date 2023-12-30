@@ -5,11 +5,11 @@
 
 # Extracts values passed to a builder.
 macro(ADD_TARGETS_EXTRACT_ARGS optional_values single_values multi_values)
-  set(optional_values2 ${optional_values} "")
-  set(single_values2   ${single_values}   TARGET)
-  set(multi_values2    ${multi_values} COMPILE_OPTIONS INCLUDE DEFINE LINK_OPTIONS LINK_TARGETS SOURCES)
+  set(optional_values2 $${optional_values} "")
+  set(single_values2   $${single_values}   TARGET)
+  set(multi_values2    $${multi_values} COMPILE_OPTIONS INCLUDE DEFINE LINK_OPTIONS LINK_TARGETS SOURCES)
 
-  cmake_parse_arguments(add_target_args "${optional_values2}" "${single_values2}" "${multi_values2}" ${ARGN})
+  cmake_parse_arguments(add_target_args "$${optional_values2}" "$${single_values2}" "$${multi_values2}" $${ARGN})
 
   if(NOT add_target_args_TARGET)
     message(FATAL_ERROR "TARGET is not set; cannot build a $${CMAKE_CURRENT_FUNCTION} without naming the TARGET")
@@ -21,37 +21,37 @@ macro(ADD_TARGETS_EXTRACT_ARGS optional_values single_values multi_values)
 endmacro()
 
 function(add_scoped_options target scope compile_options macros includes link_options link_targets)
-  set(is_release $<CONFIG:Release>)
-  set(is_clang $<CXX_COMPILER_ID:Clang>)
-  set(is_gcc $<CXX_COMPILER_ID:GNU>)
+  set(is_release $$<CONFIG:Release>)
+  set(is_clang $$<CXX_COMPILER_ID:Clang>)
+  set(is_gcc $$<CXX_COMPILER_ID:GNU>)
 
-  set(enable_thin_lto $<AND:${is_release},${is_clang},$<BOOL:cxxrs_ENABLE_LTO>>)
-  set(enable_lto $<AND:${is_release},${is_gcc},$<BOOL:cxxrs_ENABLE_LTO>>)
-  set(enable_cfi $<AND:${enable_thin_lto},$<BOOL:cxxrs_ENABLE_CFI>>)
-  set(enable_sanitizer $<AND:$<BOOL:cxxrs_USE_SANITIZER>,$<IN_LIST:${CMAKE_BUILD_TYPE},${cxxrs_USE_SANITIZER_WITH_BUILD_TYPE}>>)
-  set(enable_coverage $<BOOL:cxxrs_PROFILE_COVERAGE>)
+  set(enable_thin_lto $$<AND:$${is_release},$${is_clang},$$<BOOL:cxxrs_ENABLE_LTO>>)
+  set(enable_lto $$<AND:$${is_release},$${is_gcc},$$<BOOL:cxxrs_ENABLE_LTO>>)
+  set(enable_cfi $$<AND:$${enable_thin_lto},$$<BOOL:cxxrs_ENABLE_CFI>>)
+  set(enable_sanitizer $$<AND:$$<BOOL:cxxrs_USE_SANITIZER>,$$<IN_LIST:$${CMAKE_BUILD_TYPE},$${cxxrs_USE_SANITIZER_WITH_BUILD_TYPE}>>)
+  set(enable_coverage $$<BOOL:cxxrs_PROFILE_COVERAGE>)
   target_compile_options(
-    ${target} ${scope}
-    "${compile_options}"
-    $<${enable_sanitizer}:-fsanitize=${cxxrs_USE_SANITIZER}>
-    $<${enable_lto}:-flto>
-    $<${enable_thin_lto}:-flto=thin>
-    $<${enable_cfi}:-fsanitize=cfi>
-    $<${enable_coverage}:-fsanitize-coverage=trace-pc-guard>
+    $${target} $${scope}
+    "$${compile_options}"
+    $$<$${enable_sanitizer}:-fsanitize=$${cxxrs_USE_SANITIZER}>
+    $$<$${enable_lto}:-flto>
+    $$<$${enable_thin_lto}:-flto=thin>
+    $$<$${enable_cfi}:-fsanitize=cfi>
+    $$<$${enable_coverage}:-fsanitize-coverage=trace-pc-guard>
   )
-  target_compile_definitions(${target} ${scope} "${macros}")
-  target_include_directories(${target} ${scope} "${includes}")
+  target_compile_definitions($${target} $${scope} "$${macros}")
+  target_include_directories($${target} $${scope} "$${includes}")
 
   target_link_options(
-    ${target} ${scope}
-    $<${enable_sanitizer}:-fsanitize=${cxxrs_USE_SANITIZER}>
-    $<${enable_lto}:-flto>
-    $<${enable_thin_lto}:-flto=thin>
-    $<${enable_cfi}:-fsanitize=cfi>
-    $<${enable_coverage}:-fsanitize-coverage=trace-pc-guard>
-    "${link_options}"
+    $${target} $${scope}
+    $$<$${enable_sanitizer}:-fsanitize=$${cxxrs_USE_SANITIZER}>
+    $$<$${enable_lto}:-flto>
+    $$<$${enable_thin_lto}:-flto=thin>
+    $$<$${enable_cfi}:-fsanitize=cfi>
+    $$<$${enable_coverage}:-fsanitize-coverage=trace-pc-guard>
+    "$${link_options}"
   )
-  target_link_libraries(${target} ${scope} "${link_targets}")
+  target_link_libraries($${target} $${scope} "$${link_targets}")
 endfunction()
 
 function(cxx_binary)

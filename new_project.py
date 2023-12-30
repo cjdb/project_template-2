@@ -11,14 +11,14 @@ def new_project(project):
     name = os.path.basename(project.path)
 
     repo = generate_repo(path=project.path,
-                         git_choice=project.git,
+                         remote=project.remote,
                          package_manager=project.package_manager,
                          package_manager_remote=project.package_manager_remote)
     generate_clang_dotfiles(repo=repo, project_name=name, path=project.path)
     generate_documentation(repo=repo,
                            project_name=name,
                            author=project.author,
-                           remote=project.git,
+                           remote=project.remote,
                            path=project.path)
 
     if project.package_manager == 'vcpkg':
@@ -27,22 +27,20 @@ def new_project(project):
                        project_name=name,
                        remote=project.package_manager_remote)
 
-    if project.build_system == 'cmake':
-        toolchains = generate_cmake(
-            repo=repo,
-            project_name=name,
-            path=project.path,
-            cxx_standard=project.std,
-            exceptions=not project.fno_exceptions,
-            rtti=not project.fno_rtti,
-            toolchain_prefix=project.prefix,
-            vcpkg_enabled=project.package_manager == 'vcpkg')
+    toolchains = generate_cmake(
+        repo=repo,
+        project_name=name,
+        path=project.path,
+        cxx_standard=project.std,
+        exceptions=not project.fno_exceptions,
+        rtti=not project.fno_rtti,
+        toolchain_prefix=project.toolchain_prefix,
+        vcpkg_enabled=project.package_manager == 'vcpkg')
 
     generate_editor(repo=repo,
                     path=project.path,
                     editor=project.editor,
                     project_name=name,
-                    using_cmake=project.build_system == 'cmake',
                     toolchains=toolchains or [])
 
     repo.index.commit(
@@ -50,7 +48,7 @@ def new_project(project):
     return
 
 
-def generate_repo(path: str, git_choice: str, package_manager: str,
+def generate_repo(path: str, remote: str, package_manager: str,
                   package_manager_remote: str) -> Repo:
     if os.path.exists(path):
         panic(f"path '{path}' already exists")
@@ -58,8 +56,10 @@ def generate_repo(path: str, git_choice: str, package_manager: str,
     print(f'Creating repo at {path}')
     repo = Repo.init(path=path, mkdir=True)
     repo.active_branch.rename('main')
-    if git_choice.endswith('.git'):
-        repo.create_remote(name='origin', url=f'{git_choice}')
+    if remote.startswith('file://'):
+        repo.create_remote(name='origin', url=f'{remote[len("file://"):]}')
+    elif remote.endswith('.git'):
+        repo.create_remote(name='origin', url=f'{remote}')
 
     shutil.copy('templates/.gitignore', path)
     repo.index.add(f'{path}/.gitignore')
@@ -67,7 +67,7 @@ def generate_repo(path: str, git_choice: str, package_manager: str,
 
 
 def generate_editor(repo: Repo, path: str, editor: str, project_name: str,
-                    using_cmake: bool, toolchains: List[str]):
+                    toolchains: dict):
     if editor == 'none':
         return []
 
@@ -75,7 +75,6 @@ def generate_editor(repo: Repo, path: str, editor: str, project_name: str,
         generate_vscode(repo=repo,
                         path=path,
                         project_name=project_name,
-                        using_cmake=using_cmake,
                         toolchains=toolchains)
 
 
@@ -95,7 +94,7 @@ def substitute_templates(replace,
 
 
 def generate_vscode(repo: Repo, path: str, project_name: str,
-                    using_cmake: bool, toolchains: List[str]):
+                    toolchains: dict):
     print('Copying VS Code files')
     vscode_dir = f'{path}/.vscode'
     os.mkdir(vscode_dir)
@@ -104,36 +103,40 @@ def generate_vscode(repo: Repo, path: str, project_name: str,
     shutil.copy(f'{vscode_templates}/launch.json', vscode_dir)
     shutil.copy(f'{vscode_templates}/settings.json', vscode_dir)
 
-    if using_cmake:
-        cmake_kits_json = 'cmake-kits.json'
-        with open(f'{vscode_templates}/cmake-kits.json') as f:
-            cmake_kits = Template(f.read())
-        cmake_enabled = ',\n'.join(
-            map(
-                lambda toolchain: cmake_kits.substitute(
-                    {
-                        'project_name': project_name,
-                        'config_name': toolchain[0],
-                        'toolchain': toolchain[1],
-                        'enable_clang_tidy': 'On'
-                    }).strip(), toolchains))
-        cmake_disabled = ',\n'.join(
-            map(
-                lambda toolchain: cmake_kits.substitute(
-                    {
-                        'project_name': project_name,
-                        'config_name': toolchain[0],
-                        'toolchain': toolchain[1],
-                        'enable_clang_tidy': 'Off'
-                    }).strip(), toolchains))
-        with open(f'{vscode_dir}/{cmake_kits_json}', 'w') as f:
-            f.write('[\n  ')
-            f.write(cmake_enabled)
-            f.write(',\n  ')
-            f.write(cmake_disabled)
-            f.write('\n]')
+    cmake_kits_json = 'cmake-kits.json'
+    with open(f'{vscode_templates}/cmake-kits.json') as f:
+        cmake_kits = Template(f.read())
+
+    entries = []
+    for (_, toolchain) in toolchains.items():
+        entries.append(
+            cmake_kits.substitute({
+                'project_name': project_name,
+                'config_name': toolchain['name'],
+                'description': toolchain['toolchain'],
+                'toolchain': make_triplet(toolchain),
+                'triple': toolchain['triple'],
+                'enable_clang_tidy': 'On',
+            }).strip())
+        entries.append(
+            cmake_kits.substitute({
+                'project_name': project_name,
+                'config_name': toolchain['name'],
+                'description': toolchain['toolchain'],
+                'toolchain': make_triplet(toolchain),
+                'triple': toolchain['triple'],
+                'enable_clang_tidy': 'Off',
+            }).strip())
+
+    with open(f'{vscode_dir}/{cmake_kits_json}', 'w') as f:
+        to_join = ',\n  '  # escape sequences aren't allowed in f-strings
+        f.write(f'[\n  {to_join.join(entries)}\n]')
 
     repo.index.add(vscode_dir)
+
+
+def make_triplet(toolchain):
+    return f'{toolchain["triple"]}-{toolchain["suffix"]}'
 
 
 def generate_clang_dotfiles(repo: Repo, path: str, project_name: str):
@@ -176,8 +179,13 @@ def get_remote(remote: str) -> str:
 def generate_documentation(repo: Repo, project_name: str, author: str,
                            remote: str, path: str):
     print('Generating documentation')
-    shutil.copy('templates/README.md', path)
-    paths = [f'{path}/README.md']
+    paths = []
+    paths.append(
+        substitute_templates(
+            template='README.md',
+            prefix=path,
+            replace={'project_name': project_name},
+        ))
     paths.append(
         substitute_templates(
             template='LICENCE',
@@ -224,7 +232,9 @@ def generate_cmake(repo: Repo, project_name: str, path: str, cxx_standard,
             prefix=path,
             replace={
                 'project_name': project_name,
-                'cxx_standard': cxx_standard
+                'cxx_standard': cxx_standard[-2:],
+                'extensions':
+                'Yes' if cxx_standard.startswith('gnu++') else 'No',
             },
         ))
 
@@ -265,11 +275,26 @@ def generate_cmake(repo: Repo, project_name: str, path: str, cxx_standard,
 
     target = 'x86_64'
     triple = 'x86_64-unknown-linux-gnu'
-    toolchains = [
-        ('GCC', f'{triple}-gcc'),
-        ('Clang (GNU toolchain)', f'{triple}-clang-with-gnu-toolchain'),
-        ('Clang (LLVM toolchain)', f'{triple}-clang-with-llvm-toolchain'),
-    ]
+    toolchains = {
+        'gcc': {
+            'name': 'GCC',
+            'toolchain': '',
+            'triple': triple,
+            'suffix': 'gcc',
+        },
+        'clang-gnu': {
+            'name': 'Clang',
+            'toolchain': ' (GNU toolchain)',
+            'triple': triple,
+            'suffix': 'with-gnu-toolchain'
+        },
+        'clang-llvm': {
+            'name': 'Clang',
+            'toolchain': ' (LLVM toolchain)',
+            'triple': triple,
+            'suffix': 'with-llvm-toolchain',
+        }
+    }
     gnu_toolchain = {
         'system_name': platform.system(),
         'target': target,
@@ -288,7 +313,7 @@ def generate_cmake(repo: Repo, project_name: str, path: str, cxx_standard,
         'exceptions': '-fno-exceptions' if not exceptions else '',
         'rtti': '-fno-rtti' if not rtti else '',
     }
-    substitute_templates(rename=f'{toolchains[0][1]}.cmake',
+    substitute_templates(rename=f'{make_triplet(toolchains["gcc"])}.cmake',
                          template=f'{root}/toolchains/toolchain_base.cmake',
                          prefix=path,
                          replace=gnu_toolchain)
@@ -297,10 +322,11 @@ def generate_cmake(repo: Repo, project_name: str, path: str, cxx_standard,
     clang_with_gnu_toolchain['cc'] = 'clang'
     clang_with_gnu_toolchain['cxx'] = 'clang++'
     clang_with_gnu_toolchain['stdlib'] = '-stdlib=libstdc++'
-    substitute_templates(rename=f'{toolchains[1][1]}.cmake',
-                         template=f'{root}/toolchains/toolchain_base.cmake',
-                         prefix=path,
-                         replace=clang_with_gnu_toolchain)
+    substitute_templates(
+        rename=f'{make_triplet(toolchains["clang-gnu"])}.cmake',
+        template=f'{root}/toolchains/toolchain_base.cmake',
+        prefix=path,
+        replace=clang_with_gnu_toolchain)
 
     llvm_toolchain = {
         'system_name': platform.system(),
@@ -320,10 +346,11 @@ def generate_cmake(repo: Repo, project_name: str, path: str, cxx_standard,
         'exceptions': '-fno-exceptions' if not exceptions else '',
         'rtti': '-fno-rtti' if not rtti else '',
     }
-    substitute_templates(rename=f'{toolchains[2][1]}.cmake',
-                         template=f'{root}/toolchains/toolchain_base.cmake',
-                         prefix=path,
-                         replace=llvm_toolchain)
+    substitute_templates(
+        rename=f'{make_triplet(toolchains["clang-llvm"])}.cmake',
+        template=f'{root}/toolchains/toolchain_base.cmake',
+        prefix=path,
+        replace=llvm_toolchain)
 
     if vcpkg_enabled:
         vcpkg_root = 'config/vcpkg/cmake/toolchains'
@@ -331,34 +358,41 @@ def generate_cmake(repo: Repo, project_name: str, path: str, cxx_standard,
         os.makedirs(f'{path}/{vcpkg_root}')
 
         triplet_name = 'triplet_name'
-        gnu_toolchain[triplet_name] = toolchains[0][1]
-        clang_with_gnu_toolchain[triplet_name] = toolchains[1][1]
-        llvm_toolchain[triplet_name] = toolchains[2][1]
+        gnu_toolchain[triplet_name] = make_triplet(toolchains['gcc'])
+        clang_with_gnu_toolchain[triplet_name] = make_triplet(
+            toolchains['clang-gnu'])
+        llvm_toolchain[triplet_name] = make_triplet(toolchains['clang-llvm'])
 
         lto = 'lto'
         gnu_toolchain[lto] = '-flto'
         clang_with_gnu_toolchain[lto] = '-flto=thin'
         llvm_toolchain[lto] = '-flto=thin'
 
-        substitute_templates(rename=f'{toolchains[0][1]}.cmake',
+        substitute_templates(rename=f'{gnu_toolchain[triplet_name]}.cmake',
                              template=f'{vcpkg_root}/toolchain_base.cmake',
                              prefix=path,
                              replace=gnu_toolchain)
-        substitute_templates(rename=f'{toolchains[1][1]}.cmake',
-                             template=f'{vcpkg_root}/toolchain_base.cmake',
-                             prefix=path,
-                             replace=clang_with_gnu_toolchain)
-        substitute_templates(rename=f'{toolchains[2][1]}.cmake',
+        substitute_templates(
+            rename=f'{clang_with_gnu_toolchain[triplet_name]}.cmake',
+            template=f'{vcpkg_root}/toolchain_base.cmake',
+            prefix=path,
+            replace=clang_with_gnu_toolchain)
+        substitute_templates(rename=f'{llvm_toolchain[triplet_name]}.cmake',
                              template=f'{vcpkg_root}/toolchain_base.cmake',
                              prefix=path,
                              replace=llvm_toolchain)
 
+    os.mkdir(f'{path}/source')
+    shutil.copy('templates/source/CMakeLists.txt', f'{path}/source')
+    paths.append('source')
     repo.index.add(paths)
     return toolchains
 
 
 def generate_vcpkg(path: str, repo: Repo, project_name: str, remote: str):
     print('Acquiring vcpkg')
+    if not remote:
+        remote = 'https://github.com/Microsoft/vcpkg.git'
     vcpkg = Submodule.add(repo, 'vcpkg', path=f'{path}/vcpkg', url=remote)
     vcpkg.update(recursive=True, init=True, to_latest_revision=True)
 

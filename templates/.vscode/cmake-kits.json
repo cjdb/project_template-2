@@ -1,24 +1,24 @@
 {
-  "name": "${project_name}: ${config_name} (clang-tidy ${enable_clang_tidy})",
-  "toolchainFile": "$${workspaceFolder}/vcpkg/scripts/buildsystems/vcpkg.cmake",
-  "preferredGenerator": {
-    "name": "Ninja"
-  },
-  "cmakeSettings": {
-    "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "$${workspaceFolder}/config/cmake/toolchains/${toolchain}.cmake",
-    "VCPKG_OVERLAY_TRIPLETS": "$${workspaceFolder}/config/vcpkg",
-    "VCPKG_INSTALL_OPTIONS": "--clean-after-build",
-    "VCPKG_TARGET_TRIPLET": "${toolchain}",
-    "${project_name}_ENABLE_CLANG_TIDY": "${enable_clang_tidy}",
-    "${project_name}_CLANG_TIDY_PATH": "",
-    "${project_name}_ENABLE_MODULES": "No",
-    "${project_name}_ENABLE_LTO": "Yes",
-    "${project_name}_ENABLE_CFI": "Yes",
-    "${project_name}_USE_SANITIZER": "address,undefined",
-    "${project_name}_USE_SANITIZER_BUILD_TYPE": [
-      "Debug",
-      "RelWithDebInfo"
-    ],
-    "${project_name}_PROFILE_COVERAGE": "No"
+    "name": "${config_name}${description}: ${triple} (clang-tidy ${enable_clang_tidy})",
+    "toolchainFile": "$${workspaceFolder}/vcpkg/scripts/buildsystems/vcpkg.cmake",
+    "preferredGenerator": {
+      "name": "Ninja"
+    },
+    "cmakeSettings": {
+      "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "$${workspaceFolder}/config/cmake/toolchains/${toolchain}.cmake",
+      "VCPKG_OVERLAY_TRIPLETS": "$${workspaceFolder}/config/vcpkg/cmake/toolchains",
+      "VCPKG_INSTALL_OPTIONS": "--clean-after-build",
+      "VCPKG_TARGET_TRIPLET": "${toolchain}",
+      "${project_name}_ENABLE_CLANG_TIDY": "${enable_clang_tidy}",
+      "${project_name}_CLANG_TIDY_PATH": "",
+      "${project_name}_ENABLE_MODULES": "No",
+      "${project_name}_ENABLE_LTO": "Yes",
+      "${project_name}_ENABLE_CFI": "Yes",
+      "${project_name}_USE_SANITIZER": "address,undefined",
+      "${project_name}_USE_SANITIZER_BUILD_TYPE": [
+        "Debug",
+        "RelWithDebInfo"
+      ],
+      "${project_name}_PROFILE_COVERAGE": "No"
+    }
   }
-}

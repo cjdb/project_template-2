@@ -16,4 +16,5 @@
   "cmake.configureOnOpen": false,
   "cmake.generator": "Ninja",
   "cmake.saveBeforeBuild": true,
+  "cmake.showSystemKits": false,
 }

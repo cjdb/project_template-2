@@ -35,7 +35,7 @@ set(
 )
 
 function(validate_option value valid_values)
-  list(FIND "${valid_values}" "${${value}}" found)
+  list(FIND "$${valid_values}" "$${$${value}}" found)
   if(found EQUAL -1)
     message(FATAL_ERROR "invalid value '$${$${value}}' for option $${value}")
   endif()
