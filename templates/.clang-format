@@ -11,7 +11,6 @@ AlignConsecutiveAssignments: None
 AlignConsecutiveBitFields: None
 AlignConsecutiveDeclarations: None
 AlignConsecutiveMacros: AcrossEmptyLinesAndComments
-AlignConsecutiveShortCaseStatements: AcrossEmptyLinesAndComments
 AlignEscapedNewlines: Left
 AlignOperands: AlignAfterOperator
 AlignTrailingComments: true
@@ -117,7 +116,7 @@ ReferenceAlignment: Pointer
 ReflowComments: true
 RequiresClausePosition: OwnLine
 RequiresExpressionIndentation: OuterScope
-SeparateDefinitionBlocks: true
+SeparateDefinitionBlocks: Leave
 ShortNamespaceLines: 1
 SortIncludes: true
 SortUsingDeclarations: true

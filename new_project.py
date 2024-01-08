@@ -3,6 +3,7 @@ from string import Template
 from git import Repo, Submodule
 from utils import panic
 from typing import List
+from pathlib import Path
 
 
 def new_project(project):
@@ -48,6 +49,9 @@ def new_project(project):
     return
 
 
+templates = f'{Path(__file__).resolve().parent}/templates'
+
+
 def generate_repo(path: str, remote: str, package_manager: str,
                   package_manager_remote: str) -> Repo:
     if os.path.exists(path):
@@ -61,7 +65,7 @@ def generate_repo(path: str, remote: str, package_manager: str,
     elif remote.endswith('.git'):
         repo.create_remote(name='origin', url=f'{remote}')
 
-    shutil.copy('templates/.gitignore', path)
+    shutil.copy(f'{templates}/.gitignore', f'{path}/.gitignore')
     repo.index.add(f'{path}/.gitignore')
     return repo
 
@@ -82,7 +86,7 @@ def substitute_templates(replace,
                          template: str,
                          prefix: str,
                          rename: str = None) -> str:
-    with open(f'templates/{template}') as f:
+    with open(f'{templates}/{template}') as f:
         data = Template(f.read())
 
     suffix = template if not rename else os.path.join(
@@ -99,7 +103,7 @@ def generate_vscode(repo: Repo, path: str, project_name: str,
     vscode_dir = f'{path}/.vscode'
     os.mkdir(vscode_dir)
 
-    vscode_templates = 'templates/.vscode'
+    vscode_templates = f'{templates}/.vscode'
     shutil.copy(f'{vscode_templates}/launch.json', vscode_dir)
     shutil.copy(f'{vscode_templates}/settings.json', vscode_dir)
 
@@ -111,21 +115,21 @@ def generate_vscode(repo: Repo, path: str, project_name: str,
     for (_, toolchain) in toolchains.items():
         entries.append(
             cmake_kits.substitute({
-                'project_name': project_name,
+                'project_name': project_name.upper(),
                 'config_name': toolchain['name'],
                 'description': toolchain['toolchain'],
                 'toolchain': make_triplet(toolchain),
                 'triple': toolchain['triple'],
-                'enable_clang_tidy': 'On',
+                'use_clang_tidy': 'Yes',
             }).strip())
         entries.append(
             cmake_kits.substitute({
-                'project_name': project_name,
+                'project_name': project_name.upper(),
                 'config_name': toolchain['name'],
                 'description': toolchain['toolchain'],
                 'toolchain': make_triplet(toolchain),
                 'triple': toolchain['triple'],
-                'enable_clang_tidy': 'Off',
+                'use_clang_tidy': 'No',
             }).strip())
 
     with open(f'{vscode_dir}/{cmake_kits_json}', 'w') as f:
@@ -143,9 +147,9 @@ def generate_clang_dotfiles(repo: Repo, path: str, project_name: str):
     print('Copying clang-tools dotfiles')
 
     dot_clang_format = '.clang-format'
-    shutil.copy(f'templates/{dot_clang_format}', path)
+    shutil.copy(f'{templates}/{dot_clang_format}', path)
     dot_clangd = '.clangd'
-    shutil.copy(f'templates/{dot_clangd}', path)
+    shutil.copy(f'{templates}/{dot_clangd}', path)
 
     dot_clang_tidy = '.clang-tidy'
     dot_clang_tidy = substitute_templates(
@@ -210,7 +214,7 @@ def generate_documentation(repo: Repo, project_name: str, author: str,
     teams = 'docs/project/teams'
     paths.append(f'{path}/{teams}')
     os.makedirs(f'{path}/{teams}')
-    shutil.copy(f'templates/{teams}/conduct_teams.md', f'{path}/{teams}')
+    shutil.copy(f'{templates}/{teams}/conduct_teams.md', f'{path}/{teams}')
     substitute_templates(
         template=f'{teams}/leads.md',
         prefix=f'{path}',
@@ -245,32 +249,32 @@ def generate_cmake(repo: Repo, project_name: str, path: str, cxx_standard,
     substitute_templates(
         template=f'{root}/add_targets.cmake',
         prefix=path,
-        replace={'project_name': project_name},
+        replace={'project_name': project_name.upper()},
     )
     substitute_templates(
         template=f'{root}/FindClangTidy.cmake',
         prefix=path,
-        replace={'project_name': project_name},
+        replace={'project_name': project_name.upper()},
     )
     substitute_templates(
         template=f'{root}/FindStdModules.cmake',
         prefix=path,
-        replace={'project_name': project_name},
+        replace={'project_name': project_name.upper()},
     )
     substitute_templates(
         template=f'{root}/add_packages.cmake',
         prefix=path,
-        replace={'project_name': project_name},
+        replace={'project_name': project_name.upper()},
     )
     substitute_templates(
         template=f'{root}/handle_options.cmake',
         prefix=path,
-        replace={'project_name': project_name},
+        replace={'project_name': project_name.upper()},
     )
     substitute_templates(
         template=f'{root}/handle_options_impl.cmake',
         prefix=path,
-        replace={'project_name': project_name},
+        replace={'project_name': project_name.upper()},
     )
 
     target = 'x86_64'
@@ -286,13 +290,13 @@ def generate_cmake(repo: Repo, project_name: str, path: str, cxx_standard,
             'name': 'Clang',
             'toolchain': ' (GNU toolchain)',
             'triple': triple,
-            'suffix': 'with-gnu-toolchain'
+            'suffix': 'clang-with-gnu-toolchain'
         },
         'clang-llvm': {
             'name': 'Clang',
             'toolchain': ' (LLVM toolchain)',
             'triple': triple,
-            'suffix': 'with-llvm-toolchain',
+            'suffix': 'clang-with-llvm-toolchain',
         }
     }
     gnu_toolchain = {
@@ -318,7 +322,7 @@ def generate_cmake(repo: Repo, project_name: str, path: str, cxx_standard,
                          prefix=path,
                          replace=gnu_toolchain)
 
-    clang_with_gnu_toolchain = gnu_toolchain
+    clang_with_gnu_toolchain = gnu_toolchain.copy()
     clang_with_gnu_toolchain['cc'] = 'clang'
     clang_with_gnu_toolchain['cxx'] = 'clang++'
     clang_with_gnu_toolchain['stdlib'] = '-stdlib=libstdc++'
@@ -383,7 +387,7 @@ def generate_cmake(repo: Repo, project_name: str, path: str, cxx_standard,
                              replace=llvm_toolchain)
 
     os.mkdir(f'{path}/source')
-    shutil.copy('templates/source/CMakeLists.txt', f'{path}/source')
+    shutil.copy(f'{templates}/source/CMakeLists.txt', f'{path}/source')
     paths.append('source')
     repo.index.add(paths)
     return toolchains
