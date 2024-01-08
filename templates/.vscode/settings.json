@@ -17,4 +17,9 @@
   "cmake.generator": "Ninja",
   "cmake.saveBeforeBuild": true,
   "cmake.showSystemKits": false,
+  "[cpp]": {
+    "editor.formatOnPaste": false,
+    "editor.formatOnSave": true,
+    "editor.formatOnSaveMode": "modificationsIfAvailable"
+  }
 }

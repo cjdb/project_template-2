@@ -4,8 +4,8 @@
 include(FetchContent)
 include(FindPackageHandleStandardArgs)
 
-if(NOT CMAKE_CXX_COMPILER_ID EQUAL "Clang")
-  message(FATAL_ERROR "${project_name}_ENABLE_MODULES is only compatible with Clang and libc++")
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  message(FATAL_ERROR "${project_name}_USE_CXX20_MODULES is only compatible with Clang and libc++")
 endif()
 
 cmake_policy(VERSION 3.28)

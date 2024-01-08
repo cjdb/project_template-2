@@ -25,16 +25,16 @@ function(add_scoped_options target scope compile_options macros includes link_op
   set(is_clang $$<CXX_COMPILER_ID:Clang>)
   set(is_gcc $$<CXX_COMPILER_ID:GNU>)
 
-  set(enable_thin_lto $$<AND:$${is_release},$${is_clang},$$<BOOL:cxxrs_ENABLE_LTO>>)
-  set(enable_lto $$<AND:$${is_release},$${is_gcc},$$<BOOL:cxxrs_ENABLE_LTO>>)
-  set(enable_cfi $$<AND:$${enable_thin_lto},$$<BOOL:cxxrs_ENABLE_CFI>>)
+  set(enable_thin_lto $$<AND:$${is_release},$${is_clang},$$<BOOL:cxxrs_USE_LTO>>)
+  set(use_lto $$<AND:$${is_release},$${is_gcc},$$<BOOL:cxxrs_USE_LTO>>)
+  set(enable_cfi $$<AND:$${enable_thin_lto},$$<BOOL:cxxrs_USE_CFI>>)
   set(enable_sanitizer $$<AND:$$<BOOL:cxxrs_USE_SANITIZER>,$$<IN_LIST:$${CMAKE_BUILD_TYPE},$${cxxrs_USE_SANITIZER_WITH_BUILD_TYPE}>>)
   set(enable_coverage $$<BOOL:cxxrs_PROFILE_COVERAGE>)
   target_compile_options(
     $${target} $${scope}
     "$${compile_options}"
     $$<$${enable_sanitizer}:-fsanitize=$${cxxrs_USE_SANITIZER}>
-    $$<$${enable_lto}:-flto>
+    $$<$${use_lto}:-flto>
     $$<$${enable_thin_lto}:-flto=thin>
     $$<$${enable_cfi}:-fsanitize=cfi>
     $$<$${enable_coverage}:-fsanitize-coverage=trace-pc-guard>
@@ -45,7 +45,7 @@ function(add_scoped_options target scope compile_options macros includes link_op
   target_link_options(
     $${target} $${scope}
     $$<$${enable_sanitizer}:-fsanitize=$${cxxrs_USE_SANITIZER}>
-    $$<$${enable_lto}:-flto>
+    $$<$${use_lto}:-flto>
     $$<$${enable_thin_lto}:-flto=thin>
     $$<$${enable_cfi}:-fsanitize=cfi>
     $$<$${enable_coverage}:-fsanitize-coverage=trace-pc-guard>
@@ -85,7 +85,7 @@ function(cxx_library)
   add_library(
     $${add_target_args_TARGET}
     $${add_target_args_LIBRARY_TYPE}
-    "$${add_target_args_SOURCE}"
+    "$${add_target_args_SOURCES}"
   )
   add_scoped_options(
     $${add_target_args_TARGET} PRIVATE
@@ -117,7 +117,7 @@ endfunction()
 
 function(std_module target)
   message(FATAL_ERROR "std_module is not complete yet")
-  if(NOT ${project_name}_ENABLE_MODULES)
+  if(NOT ${project_name}_USE_CXX20_MODULES)
     return()
   endif()
 
