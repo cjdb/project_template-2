@@ -32,11 +32,13 @@ config.substitutions.append((
     '%new-project',
     f'{Path(__file__).resolve().parent.resolve().parent}/generate.py 2>&1 new-project %t/project'
 ))
+config.substitutions.append((
+    '%cmake',
+    'cmake -S%t/project -B%t/project/build -GNinja 2>&1 -DVCPKG_MAX_CONCURRENCY=2'
+))
+config.substitutions.append(('%ninja', 'ninja -C%t/project/build -v -j1 2>&1'))
 config.substitutions.append(
-    ('%cmake', 'cmake -S%t/project -B%t/project/build -GNinja 2>&1'))
-config.substitutions.append(('%ninja', 'ninja -C%t/project/build 2>&1'))
-config.substitutions.append(
-    ('%ctest', 'ctest --test-dir %t/project/build 2>&1'))
+    ('%ctest', 'ctest --test-dir %t/project/build --output-on-failure 2>&1'))
 
 tool_dirs = []
 tools = []
