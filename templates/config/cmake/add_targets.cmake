@@ -3,6 +3,8 @@
 #
 # Defines functions that generate C++ executables, libraries, and tests.
 
+
+
 # Extracts values passed to a builder.
 macro(ADD_TARGETS_EXTRACT_ARGS optional_values single_values multi_values)
   set(optional_values2 $${optional_values} "")
@@ -25,16 +27,21 @@ function(add_scoped_options target scope compile_options macros includes link_op
   set(is_clang $$<CXX_COMPILER_ID:Clang>)
   set(is_gcc $$<CXX_COMPILER_ID:GNU>)
 
-  set(enable_thin_lto $$<AND:$${is_release},$${is_clang},$$<BOOL:cxxrs_USE_LTO>>)
-  set(use_lto $$<AND:$${is_release},$${is_gcc},$$<BOOL:cxxrs_USE_LTO>>)
-  set(enable_cfi $$<AND:$${enable_thin_lto},$$<BOOL:cxxrs_USE_CFI>>)
-  set(enable_sanitizer $$<AND:$$<BOOL:cxxrs_USE_SANITIZER>,$$<IN_LIST:$${CMAKE_BUILD_TYPE},$${cxxrs_USE_SANITIZER_WITH_BUILD_TYPE}>>)
-  set(enable_coverage $$<BOOL:cxxrs_PROFILE_COVERAGE>)
+  set(enable_thin_lto $$<AND:$${is_release},$${is_clang},$$<BOOL:$${${project_name}_USE_LTO}>>)
+  set(use_lto $$<AND:$${is_release},$${is_gcc},$$<BOOL:$${${project_name}_USE_LTO}>>)
+  set(enable_cfi $$<AND:$${enable_thin_lto},$$<BOOL:$${${project_name}_USE_CFI}>>)
+
+  # Commas are a problem for generator expressions, so we need to remove them.
+  string(REPLACE "," "" adjusted_use_sanitizer $${${project_name}_USE_SANITIZER})
+  set(enable_sanitizer $$<AND:$$<BOOL:$${adjusted_use_sanitizer}>,$$<IN_LIST:$${CMAKE_BUILD_TYPE},$${${project_name}_USE_SANITIZER_WITH_BUILD_TYPE}>>)
+  set(enable_coverage $$<BOOL:$${${project_name}_PROFILE_COVERAGE}>)
+
+
   target_compile_options(
     $${target} $${scope}
     "$${compile_options}"
-    $$<$${enable_sanitizer}:-fsanitize=$${cxxrs_USE_SANITIZER}>
-    $$<$${use_lto}:-flto>
+    $$<$${enable_sanitizer}:-fsanitize=$${${project_name}_USE_SANITIZER}>
+    $$<$${use_lto}:-flto=auto>
     $$<$${enable_thin_lto}:-flto=thin>
     $$<$${enable_cfi}:-fsanitize=cfi>
     $$<$${enable_coverage}:-fsanitize-coverage=trace-pc-guard>
@@ -44,8 +51,8 @@ function(add_scoped_options target scope compile_options macros includes link_op
 
   target_link_options(
     $${target} $${scope}
-    $$<$${enable_sanitizer}:-fsanitize=$${cxxrs_USE_SANITIZER}>
-    $$<$${use_lto}:-flto>
+    $$<$${enable_sanitizer}:-fsanitize=$${${project_name}_USE_SANITIZER}>
+    $$<$${use_lto}:-flto=auto>
     $$<$${enable_thin_lto}:-flto=thin>
     $$<$${enable_cfi}:-fsanitize=cfi>
     $$<$${enable_coverage}:-fsanitize-coverage=trace-pc-guard>

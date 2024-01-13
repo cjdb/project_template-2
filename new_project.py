@@ -1,4 +1,4 @@
-import os, shutil, datetime, re, platform, itertools
+import os, shutil, datetime, re, platform
 from string import Template
 from git import Repo, Submodule
 from utils import panic
@@ -262,6 +262,11 @@ def generate_cmake(repo: Repo, project_name: str, path: str, cxx_standard,
         replace={'project_name': project_name.upper()},
     )
     substitute_templates(
+        template=f'{root}/add_packages_impl.cmake',
+        prefix=path,
+        replace={'project_name': project_name.upper()},
+    )
+    substitute_templates(
         template=f'{root}/add_packages.cmake',
         prefix=path,
         replace={'project_name': project_name.upper()},
@@ -326,6 +331,7 @@ def generate_cmake(repo: Repo, project_name: str, path: str, cxx_standard,
     clang_with_gnu_toolchain['cc'] = 'clang'
     clang_with_gnu_toolchain['cxx'] = 'clang++'
     clang_with_gnu_toolchain['stdlib'] = '-stdlib=libstdc++'
+    clang_with_gnu_toolchain['linker'] = '-fuse-ld=lld'
     substitute_templates(
         rename=f'{make_triplet(toolchains["clang-gnu"])}.cmake',
         template=f'{root}/toolchains/toolchain_base.cmake',
@@ -368,7 +374,7 @@ def generate_cmake(repo: Repo, project_name: str, path: str, cxx_standard,
         llvm_toolchain[triplet_name] = make_triplet(toolchains['clang-llvm'])
 
         lto = 'lto'
-        gnu_toolchain[lto] = '-flto'
+        gnu_toolchain[lto] = '-flto=auto'
         clang_with_gnu_toolchain[lto] = '-flto=thin'
         llvm_toolchain[lto] = '-flto=thin'
 

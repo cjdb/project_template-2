@@ -22,16 +22,17 @@ set(CMAKE_RC_COMPILER "${prefix}/bin/${rc}")
 set(CMAKE_RANLIB "${prefix}/bin/${ranlib}")
 
 string(
-  JOIN " " CMAKE_CXX_FLAGS
+  JOIN " " CMAKE_CXX_FLAGS_INIT
   -fdiagnostics-color=always
   -fstack-protector-strong
   -fvisibility=hidden
-  ${linker}
   ${stdlib}
   ${hardening}
-  ${libunwind}
-  ${compiler_rt}
-  ${lto}
   ${exceptions}
   ${rtti}
+)
+
+string(
+  JOIN " " CMAKE_EXE_LINKER_FLAGS_INIT
+    ${linker} ${compiler_rt} ${libunwind} ${exceptions} ${rtti}
 )

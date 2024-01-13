@@ -15,8 +15,7 @@ set(CMAKE_RC "${prefix}/bin/${rc}")
 set(CMAKE_RANLIB "${prefix}/bin/${ranlib}")
 
 string(
-  JOIN " " CMAKE_CXX_FLAGS
-    "$${CMAKE_CXX_FLAGS}"
+  JOIN " " CMAKE_CXX_FLAGS_INIT
     -fdiagnostics-color=always
     -fstack-protector-strong
     -fvisibility=hidden
@@ -43,11 +42,13 @@ string(
     -Wno-gnu-include-next
     -Wno-private-header
     -Wno-unused-command-line-argument
-    ${linker}
     ${stdlib}
     ${hardening}
-    ${libunwind}
-    ${compiler_rt}
     ${exceptions}
     ${rtti}
+)
+
+string(
+  JOIN " " CMAKE_EXE_LINKER_FLAGS_INIT
+    ${linker} ${exceptions} ${rtti} ${compiler_rt} ${libunwind}
 )
