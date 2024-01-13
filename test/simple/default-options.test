@@ -1,0 +1,462 @@
+// RUN: %rm %t
+// RUN: %new-project --author=tester | FileCheck --match-full-lines --check-prefix=CHECK_GENERATE %s -DDIR=%t/project
+// RUN: cp -r %S/modifications/* %t/project/.
+
+// CHECK_GENERATE: Creating repo at [[DIR]]
+// CHECK_GENERATE: Copying clang-tools dotfiles
+// CHECK_GENERATE: Generating documentation
+// CHECK_GENERATE: Acquiring vcpkg
+// CHECK_GENERATE: Copying VS Code files
+
+// RUN: %rm %t/project/build
+// RUN: %cmake \
+// RUN:   -DCMAKE_BUILD_TYPE=Debug \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-gcc.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-gcc \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_CMAKE \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-gcc \
+// RUN:     -DCOMPILER=GNU \
+// RUN:     -DBUILD_TYPE=Debug \
+// RUN:     -DLTO_STATUS=disabled
+// RUN: %ninja \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_NINJA-gcc \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DOPT='-g' \
+// RUN:     -DLINK='-fsanitize=address,undefined' \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-gcc \
+// RUN:     -DLIB=debug/lib \
+// RUN:     -DDEBUG_SUFFIX=d
+// RUN: %ctest | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %t/project/build/source/hello | FileCheck --match-full-lines --check-prefix=CHECK_OUTPUT %s
+
+// RUN: %rm %t/project/build
+// RUN: %cmake \
+// RUN:   -DCMAKE_BUILD_TYPE=MinSizeRel \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-gcc.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-gcc \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_CMAKE \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-gcc \
+// RUN:     -DCOMPILER=GNU \
+// RUN:     -DBUILD_TYPE=MinSizeRel \
+// RUN:     -DLTO_STATUS=disabled
+// RUN: %ninja \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_NINJA-gcc \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DOPT='-Os -DNDEBUG' \
+// RUN:     -DLINK='-flto=auto' \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-gcc \
+// RUN:     -DLIB=lib \
+// RUN:     -DDEBUG_SUFFIX=
+// RUN: %ctest | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %t/project/build/source/hello | FileCheck --match-full-lines --check-prefix=CHECK_OUTPUT %s
+
+
+// RUN: %rm %t/project/build
+// RUN: %cmake \
+// RUN:   -DCMAKE_BUILD_TYPE=Release \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-gcc.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-gcc \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_CMAKE \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-gcc \
+// RUN:     -DCOMPILER=GNU \
+// RUN:     -DBUILD_TYPE=Release \
+// RUN:     -DLTO_STATUS=disabled
+// RUN: %ninja \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_NINJA-gcc \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DOPT='-O3 -DNDEBUG' \
+// RUN:     -DLINK='-flto=auto' \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-gcc \
+// RUN:     -DLIB=lib \
+// RUN:     -DDEBUG_SUFFIX=
+// RUN: %ctest | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %t/project/build/source/hello | FileCheck --match-full-lines --check-prefix=CHECK_OUTPUT %s
+
+// RUN: %rm %t/project/build
+// RUN: %cmake \
+// RUN:   -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-gcc.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-gcc \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_CMAKE \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-gcc \
+// RUN:     -DCOMPILER=GNU \
+// RUN:     -DBUILD_TYPE=RelWithDebInfo \
+// RUN:     -DLTO_STATUS=disabled
+// RUN: %ninja \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_NINJA-gcc \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DOPT='-O2 -g -DNDEBUG' \
+// RUN:     -DLINK='-fsanitize=address,undefined' \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-gcc \
+// RUN:     -DLIB=lib \
+// RUN:     -DDEBUG_SUFFIX=
+// RUN: %ctest | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %t/project/build/source/hello | FileCheck --match-full-lines --check-prefix=CHECK_OUTPUT %s
+
+// RUN: %rm %t/project/build
+// RUN: %cmake \
+// RUN:   -DCMAKE_BUILD_TYPE=Debug \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-clang-with-gnu-toolchain.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-clang-with-gnu-toolchain \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_CMAKE \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-gnu-toolchain \
+// RUN:     -DCOMPILER=Clang \
+// RUN:     -DBUILD_TYPE=Debug \
+// RUN:     -DLTO_STATUS=disabled
+// RUN: %ninja \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_NINJA-llvm \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DOPT='-g' \
+// RUN:     -DLINK='-fsanitize=address,undefined' \
+// RUN:     -DSTDLIB='-stdlib=libstdc++' \
+// RUN:     -DRTLIB=-rtlib=libgcc \
+// RUN:     -DUNWINDLIB=-unwindlib=libgcc \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-gnu-toolchain \
+// RUN:     -DLIB=debug/lib \
+// RUN:     -DDEBUG_SUFFIX=d
+// RUN: %ctest | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %t/project/build/source/hello | FileCheck --match-full-lines --check-prefix=CHECK_OUTPUT %s
+
+// RUN: %rm %t/project/build
+// RUN: %cmake \
+// RUN:   -DCMAKE_BUILD_TYPE=MinSizeRel \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-clang-with-gnu-toolchain.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-clang-with-gnu-toolchain \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_CMAKE \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-gnu-toolchain \
+// RUN:     -DCOMPILER=Clang \
+// RUN:     -DBUILD_TYPE=MinSizeRel \
+// RUN:     -DLTO_STATUS=disabled
+// RUN: %ninja \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_NINJA-llvm \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DOPT='-Os -DNDEBUG' \
+// RUN:     -DLINK='-flto=thin -fsanitize=cfi' \
+// RUN:     -DSTDLIB='-stdlib=libstdc++' \
+// RUN:     -DRTLIB=-rtlib=libgcc \
+// RUN:     -DUNWINDLIB=-unwindlib=libgcc \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-gnu-toolchain \
+// RUN:     -DLIB=lib \
+// RUN:     -DDEBUG_SUFFIX=
+// RUN: %ctest | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %t/project/build/source/hello | FileCheck --match-full-lines --check-prefix=CHECK_OUTPUT %s
+
+// RUN: %rm %t/project/build
+// RUN: %cmake \
+// RUN:   -DCMAKE_BUILD_TYPE=Release \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-clang-with-gnu-toolchain.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-clang-with-gnu-toolchain \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_CMAKE \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-gnu-toolchain \
+// RUN:     -DCOMPILER=Clang \
+// RUN:     -DBUILD_TYPE=Release \
+// RUN:     -DLTO_STATUS=disabled
+// RUN: %ninja \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_NINJA-llvm \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DOPT='-O3 -DNDEBUG' \
+// RUN:     -DLINK='-flto=thin -fsanitize=cfi' \
+// RUN:     -DSTDLIB='-stdlib=libstdc++' \
+// RUN:     -DRTLIB=-rtlib=libgcc \
+// RUN:     -DUNWINDLIB=-unwindlib=libgcc \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-gnu-toolchain \
+// RUN:     -DLIB=lib \
+// RUN:     -DDEBUG_SUFFIX=
+// RUN: %ctest | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %t/project/build/source/hello | FileCheck --match-full-lines --check-prefix=CHECK_OUTPUT %s
+
+// RUN: %rm %t/project/build
+// RUN: %cmake \
+// RUN:   -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-clang-with-gnu-toolchain.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-clang-with-gnu-toolchain \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_CMAKE \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-gnu-toolchain \
+// RUN:     -DCOMPILER=Clang \
+// RUN:     -DBUILD_TYPE=RelWithDebInfo \
+// RUN:     -DLTO_STATUS=disabled
+// RUN: %ninja \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_NINJA-llvm \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DOPT='-O2 -g -DNDEBUG' \
+// RUN:     -DLINK=-fsanitize=address,undefined \
+// RUN:     -DSTDLIB='-stdlib=libstdc++' \
+// RUN:     -DRTLIB=-rtlib=libgcc \
+// RUN:     -DUNWINDLIB=-unwindlib=libgcc \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-gnu-toolchain \
+// RUN:     -DLIB=lib \
+// RUN:     -DDEBUG_SUFFIX=
+// RUN: %ctest | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %t/project/build/source/hello | FileCheck --match-full-lines --check-prefix=CHECK_OUTPUT %s
+
+// RUN: %rm %t/project/build
+// RUN: %cmake \
+// RUN:   -DCMAKE_BUILD_TYPE=Debug \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-clang-with-llvm-toolchain.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-clang-with-llvm-toolchain \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_CMAKE \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-llvm-toolchain \
+// RUN:     -DCOMPILER=Clang \
+// RUN:     -DBUILD_TYPE=Debug \
+// RUN:     -DLTO_STATUS=disabled
+// RUN: %ninja \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_NINJA-llvm \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DOPT='-g' \
+// RUN:     -DLINK='-fsanitize=address,undefined' \
+// RUN:     -DSTDLIB='-stdlib=libc++ -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST' \
+// RUN:     -DRTLIB=-rtlib=compiler-rt \
+// RUN:     -DUNWINDLIB=-unwindlib=libunwind \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-llvm-toolchain \
+// RUN:     -DLIB=debug/lib \
+// RUN:     -DDEBUG_SUFFIX=d
+// RUN: %ctest | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %t/project/build/source/hello | FileCheck --match-full-lines --check-prefix=CHECK_OUTPUT %s
+
+// RUN: %rm %t/project/build
+// RUN: %cmake \
+// RUN:   -DCMAKE_BUILD_TYPE=MinSizeRel \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-clang-with-llvm-toolchain.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-clang-with-llvm-toolchain \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_CMAKE \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-llvm-toolchain \
+// RUN:     -DCOMPILER=Clang \
+// RUN:     -DBUILD_TYPE=MinSizeRel \
+// RUN:     -DLTO_STATUS=disabled
+// RUN: %ninja \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_NINJA-llvm \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DOPT='-Os -DNDEBUG' \
+// RUN:     -DLINK='-flto=thin -fsanitize=cfi' \
+// RUN:     -DSTDLIB='-stdlib=libc++ -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST' \
+// RUN:     -DRTLIB=-rtlib=compiler-rt \
+// RUN:     -DUNWINDLIB=-unwindlib=libunwind \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-llvm-toolchain \
+// RUN:     -DLIB=lib \
+// RUN:     -DDEBUG_SUFFIX=
+// RUN: %ctest | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %t/project/build/source/hello | FileCheck --match-full-lines --check-prefix=CHECK_OUTPUT %s
+
+// RUN: %rm %t/project/build
+// RUN: %cmake \
+// RUN:   -DCMAKE_BUILD_TYPE=Release \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-clang-with-llvm-toolchain.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-clang-with-llvm-toolchain \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_CMAKE \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-llvm-toolchain \
+// RUN:     -DCOMPILER=Clang \
+// RUN:     -DBUILD_TYPE=Release \
+// RUN:     -DLTO_STATUS=disabled
+// RUN: %ninja \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_NINJA-llvm \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DOPT='-O3 -DNDEBUG' \
+// RUN:     -DLINK='-flto=thin -fsanitize=cfi' \
+// RUN:     -DSTDLIB='-stdlib=libc++ -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST' \
+// RUN:     -DRTLIB=-rtlib=compiler-rt \
+// RUN:     -DUNWINDLIB=-unwindlib=libunwind \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-llvm-toolchain \
+// RUN:     -DLIB=lib \
+// RUN:     -DDEBUG_SUFFIX=
+// RUN: %ctest | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %t/project/build/source/hello | FileCheck --match-full-lines --check-prefix=CHECK_OUTPUT %s
+
+// RUN: %rm %t/project/build
+// RUN: %cmake \
+// RUN:   -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-clang-with-llvm-toolchain.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-clang-with-llvm-toolchain \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_CMAKE \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-llvm-toolchain \
+// RUN:     -DCOMPILER=Clang \
+// RUN:     -DBUILD_TYPE=RelWithDebInfo \
+// RUN:     -DLTO_STATUS=disabled
+// RUN: %ninja \
+// RUN: | FileCheck %s \
+// RUN:     --match-full-lines \
+// RUN:     --check-prefix=CHECK_NINJA-llvm \
+// RUN:     -DDIR=%t/project \
+// RUN:     -DOPT='-O2 -g -DNDEBUG' \
+// RUN:     -DLINK=-fsanitize=address,undefined \
+// RUN:     -DSTDLIB='-stdlib=libc++ -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST' \
+// RUN:     -DRTLIB=-rtlib=compiler-rt \
+// RUN:     -DUNWINDLIB=-unwindlib=libunwind \
+// RUN:     -DTOOLCHAIN=x86_64-unknown-linux-gnu-clang-with-llvm-toolchain \
+// RUN:     -DLIB=lib \
+// RUN:     -DDEBUG_SUFFIX=
+// RUN: %ctest | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %t/project/build/source/hello | FileCheck --match-full-lines --check-prefix=CHECK_OUTPUT %s
+
+// CHECK_CMAKE:      -- Running vcpkg install
+// CHECK_CMAKE:      Detecting compiler hash for triplet x64-linux...
+// CHECK_CMAKE:      Detecting compiler hash for triplet [[TOOLCHAIN]]...
+// CHECK_CMAKE:      catch2:[[TOOLCHAIN]] package ABI: {{.+}}
+// CHECK_CMAKE:      catch2 provides CMake targets:
+// CHECK_CMAKE:        # this is heuristically generated, and may not be correct
+// CHECK_CMAKE:        find_package(Catch2 CONFIG REQUIRED)
+// CHECK_CMAKE:        target_link_libraries(main PRIVATE Catch2::Catch2 Catch2::Catch2WithMain)
+// CHECK_CMAKE:      catch2 provides pkg-config modules:
+// CHECK_CMAKE:          # A modern, C++-native test framework for C++14 and above (links in default main)
+// CHECK_CMAKE:          catch2-with-main
+// CHECK_CMAKE:          # A modern, C++-native, test framework for C++14 and above
+// CHECK_CMAKE:          catch2
+// CHECK_CMAKE:      -- Running vcpkg install - done
+// CHECK_CMAKE-NEXT: -- The C compiler identification is [[COMPILER]] {{.+}}
+// CHECK_CMAKE-NEXT: -- The CXX compiler identification is [[COMPILER]] {{.+}}
+// CHECK_CMAKE-NEXT: -- Detecting C compiler ABI info
+// CHECK_CMAKE-NEXT: -- Detecting C compiler ABI info - done
+// CHECK_CMAKE-NEXT: -- Check for working C compiler: {{.+}} - skipped
+// CHECK_CMAKE-NEXT: -- Detecting C compile features
+// CHECK_CMAKE-NEXT: -- Detecting C compile features - done
+// CHECK_CMAKE-NEXT: -- Detecting CXX compiler ABI info
+// CHECK_CMAKE-NEXT: -- Detecting CXX compiler ABI info - done
+// CHECK_CMAKE-NEXT: -- Check for working CXX compiler: {{.+}} - skipped
+// CHECK_CMAKE-NEXT: -- Detecting CXX compile features
+// CHECK_CMAKE-NEXT: -- Detecting CXX compile features - done
+// CHECK_CMAKE-NEXT: -- Building with C++20 (extensions disabled)
+// CHECK_CMAKE-NEXT: -- Build type: [[BUILD_TYPE]]
+// CHECK_CMAKE-NEXT: -- Link-time optimisations [[LTO_STATUS]]
+// CHECK_CFI-NEXT:   -- ControlFlowIntegrity enabled
+// CHECK_CMAKE-NEXT: -- Sanitizers enabled: address,undefined
+// CHECK_CMAKE-NEXT: -- Sanitizers will be built in Debug;RelWithDebInfo modes
+// CHECK_CMAKE-NEXT: -- Code coverage disabled
+// CHECK_CMAKE-NEXT: -- Performing Test HAVE_FFI_CALL
+// CHECK_CMAKE-NEXT: -- Performing Test HAVE_FFI_CALL - Success
+// CHECK_CMAKE-NEXT: -- Found FFI: /usr/lib/x86_64-linux-gnu/libffi.so
+// CHECK_CMAKE-NEXT: -- Performing Test Terminfo_LINKABLE
+// CHECK_CMAKE-NEXT: -- Performing Test Terminfo_LINKABLE - Success
+// CHECK_CMAKE-NEXT: -- Found Terminfo: /usr/lib/x86_64-linux-gnu/libtinfo.so
+// CHECK_CMAKE-NEXT: -- Found ZLIB: {{.*}}
+// CHECK_CMAKE-NEXT: -- Could NOT find zstd (missing: zstd_LIBRARY zstd_INCLUDE_DIR)
+// CHECK_CMAKE-NEXT: -- Found LibXml2: {{.*}}
+// CHECK_CMAKE-NEXT: -- Could NOT find CURL (missing: CURL_LIBRARY CURL_INCLUDE_DIR)
+// CHECK_CMAKE-NEXT: -- Found ClangTidy: TRUE
+// CHECK_CMAKE-NEXT: -- Clang Tidy path: '/usr/bin/clang-tidy'
+// CHECK_CMAKE-NEXT: -- Configuring done ({{.+}})
+// CHECK_CMAKE-NEXT: -- Generating done ({{.+}})
+// CHECK_CMAKE-NEXT: -- Build files have been written to: [[DIR]]/build
+
+// CHECK_NINJA-gcc: ninja: Entering directory `[[DIR]]/build'
+// CHECK_NINJA-gcc: [1/5] {{.*/bin/cmake}} -E __run_co_compile --tidy="/usr/bin/clang-tidy;-p=\"[[DIR]]/build\";--extra-arg-before=--driver-mode=g++" --source=[[DIR]]/source/message.cpp -- /usr/bin/g++  -I[[DIR]]/source -fdiagnostics-color=always -fstack-protector-strong -fvisibility=hidden -Werror -pedantic -Wall -Wattributes -Wcast-align -Wconversion -Wdouble-promotion -Wextra -Wformat=2 -Wnon-virtual-dtor -Wnull-dereference -Wodr -Wold-style-cast -Woverloaded-virtual -Wshadow -Wsign-conversion -Wsign-promo -Wunused -Wno-ignored-attributes -Wno-cxx-attribute-extension -Wno-gnu-include-next -Wno-private-header -Wno-unused-command-line-argument [[OPT]] -std=c++20 [[LINK]] -MD -MT source/CMakeFiles/message.dir/message.cpp.o -MF source/CMakeFiles/message.dir/message.cpp.o.d -o source/CMakeFiles/message.dir/message.cpp.o -c [[DIR]]/source/message.cpp
+// CHECK_NINJA-gcc: [2/5] {{.*/bin/cmake}} -E __run_co_compile --tidy="/usr/bin/clang-tidy;-p=\"[[DIR]]/build\";--extra-arg-before=--driver-mode=g++" --source=[[DIR]]/source/hello.cpp -- /usr/bin/g++  -I[[DIR]]/source -fdiagnostics-color=always -fstack-protector-strong -fvisibility=hidden -Werror -pedantic -Wall -Wattributes -Wcast-align -Wconversion -Wdouble-promotion -Wextra -Wformat=2 -Wnon-virtual-dtor -Wnull-dereference -Wodr -Wold-style-cast -Woverloaded-virtual -Wshadow -Wsign-conversion -Wsign-promo -Wunused -Wno-ignored-attributes -Wno-cxx-attribute-extension -Wno-gnu-include-next -Wno-private-header -Wno-unused-command-line-argument [[OPT]] -std=c++20 [[LINK]] -MD -MT source/CMakeFiles/hello.dir/hello.cpp.o -MF source/CMakeFiles/hello.dir/hello.cpp.o.d -o source/CMakeFiles/hello.dir/hello.cpp.o -c [[DIR]]/source/hello.cpp
+// CHECK_NINJA-gcc: [3/5] : && /usr/bin/g++ -fdiagnostics-color=always -fstack-protector-strong -fvisibility=hidden -Werror -pedantic -Wall -Wattributes -Wcast-align -Wconversion -Wdouble-promotion -Wextra -Wformat=2 -Wnon-virtual-dtor -Wnull-dereference -Wodr -Wold-style-cast -Woverloaded-virtual -Wshadow -Wsign-conversion -Wsign-promo -Wunused -Wno-ignored-attributes -Wno-cxx-attribute-extension -Wno-gnu-include-next -Wno-private-header -Wno-unused-command-line-argument [[OPT]] -fuse-ld=gold    [[LINK]] source/CMakeFiles/message.dir/message.cpp.o source/CMakeFiles/hello.dir/hello.cpp.o -o source/hello   && :
+// CHECK_NINJA-gcc: [4/5] {{.*/bin/cmake}} -E __run_co_compile --tidy="/usr/bin/clang-tidy;-p=\"[[DIR]]/build\";--extra-arg-before=--driver-mode=g++" --source=[[DIR]]/source/test_message.cpp -- /usr/bin/g++  -I[[DIR]]/source -isystem [[DIR]]/build/vcpkg_installed/x86_64-unknown-linux-gnu-gcc/include -fdiagnostics-color=always -fstack-protector-strong -fvisibility=hidden -Werror -pedantic -Wall -Wattributes -Wcast-align -Wconversion -Wdouble-promotion -Wextra -Wformat=2 -Wnon-virtual-dtor -Wnull-dereference -Wodr -Wold-style-cast -Woverloaded-virtual -Wshadow -Wsign-conversion -Wsign-promo -Wunused -Wno-ignored-attributes -Wno-cxx-attribute-extension -Wno-gnu-include-next -Wno-private-header -Wno-unused-command-line-argument [[OPT]] -std=c++20 [[LINK]] -MD -MT source/CMakeFiles/test_message.dir/test_message.cpp.o -MF source/CMakeFiles/test_message.dir/test_message.cpp.o.d -o source/CMakeFiles/test_message.dir/test_message.cpp.o -c [[DIR]]/source/test_message.cpp
+// CHECK_NINJA-gcc: [5/5] : && /usr/bin/g++ -fdiagnostics-color=always -fstack-protector-strong -fvisibility=hidden -Werror -pedantic -Wall -Wattributes -Wcast-align -Wconversion -Wdouble-promotion -Wextra -Wformat=2 -Wnon-virtual-dtor -Wnull-dereference -Wodr -Wold-style-cast -Woverloaded-virtual -Wshadow -Wsign-conversion -Wsign-promo -Wunused -Wno-ignored-attributes -Wno-cxx-attribute-extension -Wno-gnu-include-next -Wno-private-header -Wno-unused-command-line-argument [[OPT]] -fuse-ld=gold    [[LINK]] source/CMakeFiles/message.dir/message.cpp.o source/CMakeFiles/test_message.dir/test_message.cpp.o -o source/test_message  vcpkg_installed/[[TOOLCHAIN]]/[[LIB]]/libCatch2[[DEBUG_SUFFIX]].a  vcpkg_installed/[[TOOLCHAIN]]/[[LIB]]/manual-link/libCatch2Main[[DEBUG_SUFFIX]].a  vcpkg_installed/[[TOOLCHAIN]]/[[LIB]]/libCatch2[[DEBUG_SUFFIX]].a && :
+
+// CHECK_NINJA-llvm: ninja: Entering directory `[[DIR]]/build'
+// CHECK_NINJA-llvm: [1/11] "{{/usr/bin/clang-scan-deps(-[0-9]+)?}}-18" -format=p1689 -- /usr/bin/clang++ --target=x86_64-unknown-linux-gnu  -I[[DIR]]/source -fdiagnostics-color=always -fstack-protector-strong -fvisibility=hidden -Werror -pedantic -Wall -Wattributes -Wcast-align -Wconversion -Wdouble-promotion -Wextra -Wformat=2 -Wnon-virtual-dtor -Wnull-dereference -Wodr -Wold-style-cast -Woverloaded-virtual -Wshadow -Wsign-conversion -Wsign-promo -Wunused -Wno-ignored-attributes -Wno-cxx-attribute-extension -Wno-gnu-include-next -Wno-private-header -Wno-unused-command-line-argument [[STDLIB]] [[OPT]] -std=c++20 [[LINK]] -x c++ [[DIR]]/source/message.cpp -c -o source/CMakeFiles/message.dir/message.cpp.o -MT source/CMakeFiles/message.dir/message.cpp.o.ddi -MD -MF source/CMakeFiles/message.dir/message.cpp.o.ddi.d > source/CMakeFiles/message.dir/message.cpp.o.ddi.tmp && mv source/CMakeFiles/message.dir/message.cpp.o.ddi.tmp source/CMakeFiles/message.dir/message.cpp.o.ddi
+// CHECK_NINJA-llvm: [2/11] {{.*/bin/cmake}} -E cmake_ninja_dyndep --tdi=source/CMakeFiles/message.dir/CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=source/CMakeFiles/message.dir/CXX.dd @source/CMakeFiles/message.dir/CXX.dd.rsp
+// CHECK_NINJA-llvm: [3/11] {{.*/bin/cmake}} -E __run_co_compile --tidy="/usr/bin/clang-tidy;-p=\"[[DIR]]/build\";--extra-arg-before=--driver-mode=g++" --source=[[DIR]]/source/message.cpp -- /usr/bin/clang++ --target=x86_64-unknown-linux-gnu  -I[[DIR]]/source -fdiagnostics-color=always -fstack-protector-strong -fvisibility=hidden -Werror -pedantic -Wall -Wattributes -Wcast-align -Wconversion -Wdouble-promotion -Wextra -Wformat=2 -Wnon-virtual-dtor -Wnull-dereference -Wodr -Wold-style-cast -Woverloaded-virtual -Wshadow -Wsign-conversion -Wsign-promo -Wunused -Wno-ignored-attributes -Wno-cxx-attribute-extension -Wno-gnu-include-next -Wno-private-header -Wno-unused-command-line-argument [[STDLIB]] [[OPT]] -std=c++20 [[LINK]] -MD -MT source/CMakeFiles/message.dir/message.cpp.o -MF source/CMakeFiles/message.dir/message.cpp.o.d @source/CMakeFiles/message.dir/message.cpp.o.modmap -o source/CMakeFiles/message.dir/message.cpp.o -c [[DIR]]/source/message.cpp
+// CHECK_NINJA-llvm: [4/11] "{{/usr/bin/clang-scan-deps(-[0-9]+)?}}-18" -format=p1689 -- /usr/bin/clang++ --target=x86_64-unknown-linux-gnu  -I[[DIR]]/source -fdiagnostics-color=always -fstack-protector-strong -fvisibility=hidden -Werror -pedantic -Wall -Wattributes -Wcast-align -Wconversion -Wdouble-promotion -Wextra -Wformat=2 -Wnon-virtual-dtor -Wnull-dereference -Wodr -Wold-style-cast -Woverloaded-virtual -Wshadow -Wsign-conversion -Wsign-promo -Wunused -Wno-ignored-attributes -Wno-cxx-attribute-extension -Wno-gnu-include-next -Wno-private-header -Wno-unused-command-line-argument [[STDLIB]] [[OPT]] -std=c++20 [[LINK]] -x c++ [[DIR]]/source/hello.cpp -c -o source/CMakeFiles/hello.dir/hello.cpp.o -MT source/CMakeFiles/hello.dir/hello.cpp.o.ddi -MD -MF source/CMakeFiles/hello.dir/hello.cpp.o.ddi.d > source/CMakeFiles/hello.dir/hello.cpp.o.ddi.tmp && mv source/CMakeFiles/hello.dir/hello.cpp.o.ddi.tmp source/CMakeFiles/hello.dir/hello.cpp.o.ddi
+// CHECK_NINJA-llvm: [5/11] {{.*/bin/cmake}} -E cmake_ninja_dyndep --tdi=source/CMakeFiles/hello.dir/CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=source/CMakeFiles/hello.dir/CXX.dd @source/CMakeFiles/hello.dir/CXX.dd.rsp
+// CHECK_NINJA-llvm: [6/11] {{.*/bin/cmake}} -E __run_co_compile --tidy="/usr/bin/clang-tidy;-p=\"[[DIR]]/build\";--extra-arg-before=--driver-mode=g++" --source=[[DIR]]/source/hello.cpp -- /usr/bin/clang++ --target=x86_64-unknown-linux-gnu  -I[[DIR]]/source -fdiagnostics-color=always -fstack-protector-strong -fvisibility=hidden -Werror -pedantic -Wall -Wattributes -Wcast-align -Wconversion -Wdouble-promotion -Wextra -Wformat=2 -Wnon-virtual-dtor -Wnull-dereference -Wodr -Wold-style-cast -Woverloaded-virtual -Wshadow -Wsign-conversion -Wsign-promo -Wunused -Wno-ignored-attributes -Wno-cxx-attribute-extension -Wno-gnu-include-next -Wno-private-header -Wno-unused-command-line-argument [[STDLIB]] [[OPT]] -std=c++20 [[LINK]] -MD -MT source/CMakeFiles/hello.dir/hello.cpp.o -MF source/CMakeFiles/hello.dir/hello.cpp.o.d @source/CMakeFiles/hello.dir/hello.cpp.o.modmap -o source/CMakeFiles/hello.dir/hello.cpp.o -c [[DIR]]/source/hello.cpp
+// CHECK_NINJA-llvm: [7/11] : && /usr/bin/clang++ --target=x86_64-unknown-linux-gnu -fdiagnostics-color=always -fstack-protector-strong -fvisibility=hidden -Werror -pedantic -Wall -Wattributes -Wcast-align -Wconversion -Wdouble-promotion -Wextra -Wformat=2 -Wnon-virtual-dtor -Wnull-dereference -Wodr -Wold-style-cast -Woverloaded-virtual -Wshadow -Wsign-conversion -Wsign-promo -Wunused -Wno-ignored-attributes -Wno-cxx-attribute-extension -Wno-gnu-include-next -Wno-private-header -Wno-unused-command-line-argument [[STDLIB]] [[OPT]] -fuse-ld=lld [[RTLIB]] [[UNWINDLIB]]    [[LINK]] source/CMakeFiles/message.dir/message.cpp.o source/CMakeFiles/hello.dir/hello.cpp.o -o source/hello   && :
+// CHECK_NINJA-llvm: [8/11] "{{/usr/bin/clang-scan-deps(-[0-9]+)?}}" -format=p1689 -- /usr/bin/clang++ --target=x86_64-unknown-linux-gnu  -I[[DIR]]/source -isystem [[DIR]]/build/vcpkg_installed/[[TOOLCHAIN]]/include -fdiagnostics-color=always -fstack-protector-strong -fvisibility=hidden -Werror -pedantic -Wall -Wattributes -Wcast-align -Wconversion -Wdouble-promotion -Wextra -Wformat=2 -Wnon-virtual-dtor -Wnull-dereference -Wodr -Wold-style-cast -Woverloaded-virtual -Wshadow -Wsign-conversion -Wsign-promo -Wunused -Wno-ignored-attributes -Wno-cxx-attribute-extension -Wno-gnu-include-next -Wno-private-header -Wno-unused-command-line-argument [[STDLIB]] [[OPT]] -std=c++20 [[LINK]] -x c++ [[DIR]]/source/test_message.cpp -c -o source/CMakeFiles/test_message.dir/test_message.cpp.o -MT source/CMakeFiles/test_message.dir/test_message.cpp.o.ddi -MD -MF source/CMakeFiles/test_message.dir/test_message.cpp.o.ddi.d > source/CMakeFiles/test_message.dir/test_message.cpp.o.ddi.tmp && mv source/CMakeFiles/test_message.dir/test_message.cpp.o.ddi.tmp source/CMakeFiles/test_message.dir/test_message.cpp.o.ddi
+// CHECK_NINJA-llvm: [9/11] {{.*/bin/cmake}} -E cmake_ninja_dyndep --tdi=source/CMakeFiles/test_message.dir/CXXDependInfo.json --lang=CXX --modmapfmt=clang --dd=source/CMakeFiles/test_message.dir/CXX.dd @source/CMakeFiles/test_message.dir/CXX.dd.rsp
+// CHECK_NINJA-llvm: [10/11] {{.*/bin/cmake}} -E __run_co_compile --tidy="/usr/bin/clang-tidy;-p=\"[[DIR]]/build\";--extra-arg-before=--driver-mode=g++" --source=[[DIR]]/source/test_message.cpp -- /usr/bin/clang++ --target=x86_64-unknown-linux-gnu  -I[[DIR]]/source -isystem [[DIR]]/build/vcpkg_installed/[[TOOLCHAIN]]/include -fdiagnostics-color=always -fstack-protector-strong -fvisibility=hidden -Werror -pedantic -Wall -Wattributes -Wcast-align -Wconversion -Wdouble-promotion -Wextra -Wformat=2 -Wnon-virtual-dtor -Wnull-dereference -Wodr -Wold-style-cast -Woverloaded-virtual -Wshadow -Wsign-conversion -Wsign-promo -Wunused -Wno-ignored-attributes -Wno-cxx-attribute-extension -Wno-gnu-include-next -Wno-private-header -Wno-unused-command-line-argument [[STDLIB]] [[OPT]] -std=c++20 [[LINK]] -MD -MT source/CMakeFiles/test_message.dir/test_message.cpp.o -MF source/CMakeFiles/test_message.dir/test_message.cpp.o.d @source/CMakeFiles/test_message.dir/test_message.cpp.o.modmap -o source/CMakeFiles/test_message.dir/test_message.cpp.o -c [[DIR]]/source/test_message.cpp
+// CHECK_NINJA-llvm: [11/11] : && /usr/bin/clang++ --target=x86_64-unknown-linux-gnu -fdiagnostics-color=always -fstack-protector-strong -fvisibility=hidden -Werror -pedantic -Wall -Wattributes -Wcast-align -Wconversion -Wdouble-promotion -Wextra -Wformat=2 -Wnon-virtual-dtor -Wnull-dereference -Wodr -Wold-style-cast -Woverloaded-virtual -Wshadow -Wsign-conversion -Wsign-promo -Wunused -Wno-ignored-attributes -Wno-cxx-attribute-extension -Wno-gnu-include-next -Wno-private-header -Wno-unused-command-line-argument [[STDLIB]] [[OPT]] -fuse-ld=lld [[RTLIB]] [[UNWINDLIB]]    [[LINK]] source/CMakeFiles/message.dir/message.cpp.o source/CMakeFiles/test_message.dir/test_message.cpp.o -o source/test_message  vcpkg_installed/[[TOOLCHAIN]]/[[LIB]]/libCatch2[[DEBUG_SUFFIX]].a  vcpkg_installed/[[TOOLCHAIN]]/[[LIB]]/manual-link/libCatch2Main[[DEBUG_SUFFIX]].a  vcpkg_installed/[[TOOLCHAIN]]/[[LIB]]/libCatch2[[DEBUG_SUFFIX]].a && :
+
+// CHECK_CTEST: Internal ctest changing into directory: [[DIR]]/build
+// CHECK_CTEST: Test project [[DIR]]/build
+// CHECK_CTEST:     Start 1: test.test_message
+// CHECK_CTEST: 1/1 Test #1: test.test_message ................   Passed {{.+}}
+// CHECK_CTEST-EMPTY:
+// CHECK_CTEST: 100% tests passed, 0 tests failed out of 1
+// CHECK_CTEST-EMPTY:
+// CHECK_CTEST: Total Test time (real) = {{.+}}
+
+// CHECK_OUTPUT: Hello, world!
