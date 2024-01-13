@@ -1,0 +1,81 @@
+// RUN: %rm %t
+// RUN: %new-project --author=tester | FileCheck --match-full-lines --check-prefix=CHECK_GENERATE %s -DDIR=%t/project
+
+// CHECK_GENERATE: Creating repo at [[DIR]]
+// CHECK_GENERATE: Copying clang-tools dotfiles
+// CHECK_GENERATE: Generating documentation
+// CHECK_GENERATE: Acquiring vcpkg
+// CHECK_GENERATE: Copying VS Code files
+
+// RUN: %cmake \
+// RUN:   -DCMAKE_BUILD_TYPE=Debug \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-gcc.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-gcc \
+// RUN: | FileCheck --match-full-lines --check-prefix=CHECK_CMAKE -DCOMPILER=GNU -DDIR=%t/project %s
+// RUN: %ninja | FileCheck --match-full-lines --check-prefix=CHECK_NINJA -DDIR=%t/project %s
+// RUN: %ctest | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %rm %t/project/build
+
+// RUN: %cmake \
+// RUN:   -S%t/project -B%t/project/build -GNinja \
+// RUN:   -DCMAKE_BUILD_TYPE=Debug \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-clang-with-gnu-toolchain.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-clang-with-gnu-toolchain \
+// RUN: | FileCheck --match-full-lines --check-prefix=CHECK_CMAKE -DCOMPILER=Clang -DDIR=%t/project %s
+// RUN: %ninja 2>&1 | FileCheck --match-full-lines --check-prefix=CHECK_NINJA -DDIR=%t/project %s
+// RUN: %ctest 2>&1 | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %rm %t/project/build
+
+// RUN: %cmake \
+// RUN:   -S%t/project -B%t/project/build -GNinja \
+// RUN:   -DCMAKE_BUILD_TYPE=Debug \
+// RUN:   -DCMAKE_TOOLCHAIN_FILE=%t/project/vcpkg/scripts/buildsystems/vcpkg.cmake \
+// RUN:   -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=%t/project/config/cmake/toolchains/x86_64-unknown-linux-gnu-clang-with-llvm-toolchain.cmake \
+// RUN:   -DVCPKG_OVERLAY_TRIPLETS=%t/project/config/vcpkg/cmake/toolchains \
+// RUN:   -DVCPKG_INSTALL_OPTIONS=--clean-after-build \
+// RUN:   -DVCPKG_TARGET_TRIPLET=x86_64-unknown-linux-gnu-clang-with-llvm-toolchain \
+// RUN: | FileCheck --match-full-lines --check-prefix=CHECK_CMAKE -DCOMPILER=Clang -DDIR=%t/project %s
+// RUN: %ninja 2>&1 | FileCheck --match-full-lines --check-prefix=CHECK_NINJA -DDIR=%t/project %s
+// RUN: %ctest 2>&1 | FileCheck --match-full-lines --check-prefix=CHECK_CTEST -DDIR=%t/project %s
+// RUN: %rm %t/project/build
+
+// CHECK_CMAKE: -- Running vcpkg install
+// CHECK_CMAKE: All requested packages are currently installed.
+// CHECK_CMAKE: Total install time: {{.+}}
+// CHECK_CMAKE: -- Running vcpkg install - done
+// CHECK_CMAKE: -- The C compiler identification is [[COMPILER]] {{.+}}
+// CHECK_CMAKE: -- The CXX compiler identification is [[COMPILER]] {{.+}}
+// CHECK_CMAKE: -- Detecting C compiler ABI info
+// CHECK_CMAKE: -- Detecting C compiler ABI info - done
+// CHECK_CMAKE: -- Check for working C compiler: {{.+}} - skipped
+// CHECK_CMAKE: -- Detecting C compile features
+// CHECK_CMAKE: -- Detecting C compile features - done
+// CHECK_CMAKE: -- Detecting CXX compiler ABI info
+// CHECK_CMAKE: -- Detecting CXX compiler ABI info - done
+// CHECK_CMAKE: -- Check for working CXX compiler: {{.+}} - skipped
+// CHECK_CMAKE: -- Detecting CXX compile features
+// CHECK_CMAKE: -- Detecting CXX compile features - done
+// CHECK_CMAKE: -- Building with C++20 (extensions disabled)
+// CHECK_CMAKE: -- Clang Tidy enabled
+// CHECK_CMAKE: -- C++20 modules disabled
+// CHECK_CMAKE: -- LTO enabled
+// CHECK_CMAKE: -- ControlFlowIntegrity enabled
+// CHECK_CMAKE: -- Sanitizers enabled: address,undefined
+// CHECK_CMAKE: -- Sanitizers will be built in Debug;RelWithDebInfo modes
+// CHECK_CMAKE: -- Code coverage disabled
+// CHECK_CMAKE: -- Configuring done ({{.+}})
+// CHECK_CMAKE: -- Generating done ({{.+}})
+// CHECK_CMAKE: -- Build files have been written to: [[DIR]]/build
+
+// CHECK_NINJA: ninja: Entering directory `[[DIR]]/build'
+// CHECK_NINJA: ninja: no work to do.
+
+// CHECK_CTEST: Internal ctest changing into directory: [[DIR]]/build
+// CHECK_CTEST: Test project [[DIR]]/build
+// CHECK_CTEST: No tests were found!!!
