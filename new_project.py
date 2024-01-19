@@ -327,11 +327,24 @@ def generate_cmake(repo: Repo, project_name: str, path: str, cxx_standard,
                          prefix=path,
                          replace=gnu_toolchain)
 
-    clang_with_gnu_toolchain = gnu_toolchain.copy()
-    clang_with_gnu_toolchain['cc'] = 'clang'
-    clang_with_gnu_toolchain['cxx'] = 'clang++'
-    clang_with_gnu_toolchain['stdlib'] = '-stdlib=libstdc++'
-    clang_with_gnu_toolchain['linker'] = '-fuse-ld=lld'
+    clang_with_gnu_toolchain = {
+        'system_name': platform.system(),
+        'target': target,
+        'triple': triple,
+        'prefix': toolchain_prefix,
+        'cc': 'clang',
+        'cxx': 'clang++',
+        'ar': 'ar',
+        'rc': 'rc',
+        'ranlib': 'ranlib',
+        'stdlib': '-stdlib=libstdc++',
+        'hardening': '',
+        'libunwind': '-unwindlib=libgcc',
+        'compiler_rt': '-rtlib=libgcc',
+        'linker': '-fuse-ld=lld',
+        'exceptions': '-fno-exceptions' if not exceptions else '',
+        'rtti': '-fno-rtti' if not rtti else '',
+    }
     substitute_templates(
         rename=f'{make_triplet(toolchains["clang-gnu"])}.cmake',
         template=f'{root}/toolchains/toolchain_base.cmake',
