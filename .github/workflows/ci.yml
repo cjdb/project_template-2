@@ -1,0 +1,67 @@
+name: project_template CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+    steps:
+      - name: Install tools
+        id: install_tools
+        run: |
+          sudo apt-get update
+          sudo apt-get dist-upgrade -y
+          sudo apt-get update
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository universe
+          sudo apt-get update
+          sudo apt-get install -y wget lsb-release
+          sudo wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          export DISTRO=`lsb_release -a | grep Codename | cut -f2-`
+          sudo apt-get remove -y '*clang*' '*llvm*'
+          sudo apt-get autoremove -y
+          sudo apt-add-repository "deb http://apt.llvm.org/$DISTRO/ llvm-toolchain-$DISTRO main"
+          sudo apt-get update
+          sudo apt-get install -y                                                                                               \
+              ninja-build python3 python3-pip python3-git python-is-python3 git wget gcc g++ curl zip unzip tar pkg-config \
+              libllvm18                                                                                                    \
+              llvm                                                                                                         \
+              llvm-18-dev                                                                                                  \
+              llvm-18-runtime                                                                                              \
+              clang                                                                                                        \
+              clang-tools                                                                                                  \
+              libclang-common-18-dev                                                                                       \
+              libclang-18-dev                                                                                              \
+              libclang1-18                                                                                                 \
+              clang-format                                                                                                 \
+              python3-clang                                                                                                \
+              clang-tidy                                                                                                   \
+              libclang-rt-18-dev                                                                                           \
+              lldb                                                                                                         \
+              lld                                                                                                          \
+              libc++-18-dev                                                                                                \
+              libc++abi-18-dev                                                                                             \
+              libunwind-18-dev
+          sudo python3 -m pip install pip --upgrade
+          sudo python3 -m pip install lit cmake --break-system-packages
+          sudo cp /usr/bin/clang-tidy /tmp/clang-tidy
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          repository: cjdb/project_template-2.git
+          ref: main
+          submodules: recursive
+
+      - name: Configure
+        id: configure
+        run: cmake -GNinja -B build -S .
+
+      - name: Test
+        id: test
+        run: lit -sv build/test
