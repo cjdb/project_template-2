@@ -23,12 +23,12 @@ macro(ADD_TARGETS_EXTRACT_ARGS optional_values single_values multi_values)
 endmacro()
 
 function(add_scoped_options target scope compile_options macros includes link_options link_targets)
-  set(is_release $$<CONFIG:Release>)
+  set(enable_lto $$<IN_LIST:$${CMAKE_BUILD_TYPE},$${${project_name}_USE_LTO}>)
   set(is_clang $$<CXX_COMPILER_ID:Clang>)
   set(is_gcc $$<CXX_COMPILER_ID:GNU>)
 
-  set(enable_thin_lto $$<AND:$${is_release},$${is_clang},$$<BOOL:$${${project_name}_USE_LTO}>>)
-  set(use_lto $$<AND:$${is_release},$${is_gcc},$$<BOOL:$${${project_name}_USE_LTO}>>)
+  set(enable_thin_lto $$<AND:$${enable_lto},$${is_clang},$$<BOOL:$${${project_name}_USE_LTO}>>)
+  set(enable_gcc_lto  $$<AND:$${enable_lto},$${is_gcc},$$<BOOL:$${${project_name}_USE_LTO}>>)
   set(enable_cfi $$<AND:$${enable_thin_lto},$$<BOOL:$${${project_name}_USE_CFI}>>)
 
   # Commas are a problem for generator expressions, so we need to remove them.
@@ -41,7 +41,7 @@ function(add_scoped_options target scope compile_options macros includes link_op
     $${target} $${scope}
     "$${compile_options}"
     $$<$${enable_sanitizer}:-fsanitize=$${${project_name}_USE_SANITIZER}>
-    $$<$${use_lto}:-flto=auto>
+    $$<$${enable_gcc_lto}:-flto=auto>
     $$<$${enable_thin_lto}:-flto=thin>
     $$<$${enable_cfi}:-fsanitize=cfi>
     $$<$${enable_coverage}:-fsanitize-coverage=trace-pc-guard>
@@ -52,7 +52,7 @@ function(add_scoped_options target scope compile_options macros includes link_op
   target_link_options(
     $${target} $${scope}
     $$<$${enable_sanitizer}:-fsanitize=$${${project_name}_USE_SANITIZER}>
-    $$<$${use_lto}:-flto=auto>
+    $$<$${enable_gcc_lto}:-flto=auto>
     $$<$${enable_thin_lto}:-flto=thin>
     $$<$${enable_cfi}:-fsanitize=cfi>
     $$<$${enable_coverage}:-fsanitize-coverage=trace-pc-guard>

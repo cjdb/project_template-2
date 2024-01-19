@@ -3,6 +3,13 @@
 #
 # Defines the default options for all project templates. Do not modify this file, as add_targets.cmake
 # heavily depends on it.
+function(validate_option value option valid_values)
+  list(FIND "$${valid_values}" "$${value}" found)
+
+  if(found EQUAL -1)
+    message(FATAL_ERROR "invalid value '$${value}' for $${option} (valid values are [$${$${valid_values}}])")
+  endif()
+endfunction()
 
 set(build_modes Debug RelWithDebInfo MinSizeRel Release)
 message(STATUS "Build type: $${CMAKE_BUILD_TYPE}")
@@ -28,11 +35,6 @@ set(
   CACHE STRING
   "Path to the Clang Tidy binary. Defaults to the same directory as CMAKE_CXX_COMPILER."
 )
-if(${project_name}_USE_CLANG_TIDY)
-  message(STATUS "Clang Tidy enabled")
-else()
-  message(STATUS "Clang Tidy disabled")
-endif()
 
 option(
   ${project_name}_USE_CXX20_MODULES
@@ -45,15 +47,25 @@ else()
   message(STATUS "C++20 modules disabled")
 endif()
 
-option(
+set(
   ${project_name}_USE_LTO
-  "Toggles enabing LTO (GCC) and ThinLTO (Clang) for 'CMAKE_BUILD_TYPE=Release'. Defaults to Yes."
-  Yes
+  Release MinSizeRel
+  CACHE STRING
+  "Toggles enabing link-time optimisation. Valid options are 'No' or a semicolon-separated list of CMake build types. Defaults to 'Release;MinSizeRel'."
 )
 if(${project_name}_USE_LTO)
-  message(STATUS "LTO enabled")
+  foreach(build_mode IN LISTS ${project_name}_USE_LTO)
+    validate_option("$${build_mode}" ${project_name}_USE_LTO build_modes)
+  endforeach()
+
+  list(FIND ${project_name}_USE_LTO $${CMAKE_BUILD_TYPE} lto_enabled)
+  if(lto_enabled EQUAL -1)
+    message(STATUS "Link-time optimisations disabled")
+  else()
+    message(STATUS "Link-time optimisations enabled")
+  endif()
 else()
-  message(STATUS "LTO disabled")
+  message(STATUS "Link-time optimisations disabled")
 endif()
 
 option(
@@ -61,19 +73,13 @@ option(
   "Toggles enabling ControlFlowIntegrity when ThinLTO is enabled for Clang. Defaults to 'Yes'."
   Yes
 )
-if(${project_name}_USE_CFI)
-  message(STATUS "ControlFlowIntegrity enabled")
-else()
-  message(STATUS "ControlFlowIntegrity disabled")
-endif()
-
-function(validate_option value option valid_values)
-  list(FIND "$${valid_values}" "$${value}" found)
-
-  if(found EQUAL -1)
-    message(FATAL_ERROR "invalid value '$${value}' for $${option} (valid values are [$${$${valid_values}}])")
+if(CMAKE_CXX_COMPILER_ID MATCHES Clang)
+  if(${project_name}_USE_CFI AND ${project_name}_USE_LTO)
+    message(STATUS "ControlFlowIntegrity enabled")
+  else()
+    message(STATUS "ControlFlowIntegrity disabled")
   endif()
-endfunction()
+endif()
 
 set(
   # Variable
